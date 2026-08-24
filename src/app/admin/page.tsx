@@ -23,9 +23,12 @@ export default async function AdminPage() {
         <pre className="bg-gray-100 p-4 rounded-lg mt-4 text-sm overflow-auto">
           {JSON.stringify(lojista, null, 2)}
         </pre>
-        <p className="text-sm text-gray-500 mt-4">
-          Próxima etapa: cadastro de produtos do cardápio.
-        </p>
+        <a
+          href="/admin/produtos"
+          className="inline-block mt-4 bg-black text-white rounded-lg px-4 py-2 text-sm font-medium"
+        >
+          Gerenciar produtos do cardápio
+        </a>
       </div>
     </main>
   )
