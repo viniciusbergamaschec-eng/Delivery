@@ -80,7 +80,7 @@ export default async function CardapioPublico({
           )}
         </div>
 
-        <BarraCarrinho whatsappLoja={loja.whatsapp ?? ''} nomeLoja={loja.nome} />
+        <BarraCarrinho whatsappLoja={loja.whatsapp ?? ''} nomeLoja={loja.nome} lojaId={loja.id} />
       </main>
     </CarrinhoProvider>
   )

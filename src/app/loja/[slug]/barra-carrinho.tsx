@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useCarrinho } from './carrinho-context'
+import { salvarPedido } from './actions'
 
 function formatarPreco(preco: number) {
   return preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -14,9 +15,11 @@ function limparTelefone(numero: string) {
 export default function BarraCarrinho({
   whatsappLoja,
   nomeLoja,
+  lojaId,
 }: {
   whatsappLoja: string
   nomeLoja: string
+  lojaId: string
 }) {
   const { itens, alterarQuantidade, total, quantidadeTotal, limpar } = useCarrinho()
   const [aberto, setAberto] = useState(false)
@@ -25,6 +28,7 @@ export default function BarraCarrinho({
   const [telefone, setTelefone] = useState('')
   const [endereco, setEndereco] = useState('')
   const [erro, setErro] = useState('')
+  const [enviando, setEnviando] = useState(false)
 
   if (quantidadeTotal === 0 && !aberto) return null
 
@@ -48,7 +52,7 @@ export default function BarraCarrinho({
     return linhas.join('\n')
   }
 
-  function enviarPedido() {
+  async function enviarPedido() {
     setErro('')
     if (!nome.trim() || !telefone.trim()) {
       setErro('Preencha nome e telefone.')
@@ -56,6 +60,23 @@ export default function BarraCarrinho({
     }
     if (tipoEntrega === 'entrega' && !endereco.trim()) {
       setErro('Preencha o endereço de entrega.')
+      return
+    }
+
+    setEnviando(true)
+    const resultado = await salvarPedido({
+      lojaId,
+      clienteNome: nome,
+      clienteTelefone: telefone,
+      tipoEntrega,
+      endereco: tipoEntrega === 'entrega' ? endereco : undefined,
+      total,
+      itens: itens.map((i) => ({ nome: i.nome, preco: i.preco, quantidade: i.quantidade })),
+    })
+    setEnviando(false)
+
+    if (resultado.erro) {
+      setErro('Não foi possível registrar o pedido. Tente novamente.')
       return
     }
 
@@ -158,10 +179,10 @@ export default function BarraCarrinho({
 
               <button
                 onClick={enviarPedido}
-                disabled={itens.length === 0}
+                disabled={itens.length === 0 || enviando}
                 className="bg-green-600 text-white rounded-lg py-3 font-medium disabled:opacity-50"
               >
-                Enviar pedido pelo WhatsApp
+                {enviando ? 'Enviando...' : 'Enviar pedido pelo WhatsApp'}
               </button>
             </div>
           </div>
