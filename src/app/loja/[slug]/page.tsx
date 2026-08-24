@@ -1,9 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
-
-function formatarPreco(preco: number) {
-  return preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-}
+import { CarrinhoProvider } from './carrinho-context'
+import CardProduto from './card-produto'
+import BarraCarrinho from './barra-carrinho'
 
 export default async function CardapioPublico({
   params,
@@ -15,7 +14,7 @@ export default async function CardapioPublico({
 
   const { data: loja } = await supabase
     .from('lojas')
-    .select('id, nome, whatsapp')
+    .select('id, nome, whatsapp, endereco, horario_funcionamento')
     .eq('slug', slug)
     .single()
 
@@ -38,53 +37,51 @@ export default async function CardapioPublico({
   }))
 
   return (
-    <main className="min-h-screen bg-gray-50 pb-16">
-      <header className="bg-black text-white p-6">
-        <h1 className="text-2xl font-bold">{loja.nome}</h1>
-      </header>
+    <CarrinhoProvider>
+      <main className="min-h-screen bg-gray-50 pb-28">
+        <header className="bg-black text-white p-6">
+          <h1 className="text-2xl font-bold">{loja.nome}</h1>
+          {loja.endereco && <p className="text-sm text-gray-300 mt-1">{loja.endereco}</p>}
+          {loja.horario_funcionamento && (
+            <p className="text-sm text-gray-300">{loja.horario_funcionamento}</p>
+          )}
+        </header>
 
-      <div className="max-w-2xl mx-auto p-4 flex flex-col gap-8">
-        {grupos.map(
-          ({ categoria, itens }) =>
-            itens.length > 0 && (
-              <section key={categoria.id}>
-                <h2 className="text-lg font-semibold mb-2">{categoria.nome}</h2>
-                <div className="flex flex-col gap-3">
-                  {itens.map((p) => (
-                    <div key={p.id} className="bg-white rounded-xl shadow p-4">
-                      <p className="font-medium">{p.nome}</p>
-                      {p.descricao && (
-                        <p className="text-sm text-gray-500">{p.descricao}</p>
-                      )}
-                      <p className="text-sm font-semibold mt-1">{formatarPreco(p.preco)}</p>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )
-        )}
+        <div className="max-w-2xl mx-auto p-4 flex flex-col gap-8">
+          {grupos.map(
+            ({ categoria, itens }) =>
+              itens.length > 0 && (
+                <section key={categoria.id}>
+                  <h2 className="text-lg font-semibold mb-2">{categoria.nome}</h2>
+                  <div className="flex flex-col gap-3">
+                    {itens.map((p) => (
+                      <CardProduto key={p.id} produto={p} />
+                    ))}
+                  </div>
+                </section>
+              )
+          )}
 
-        {semCategoria.length > 0 && (
-          <section>
-            <h2 className="text-lg font-semibold mb-2">Outros</h2>
-            <div className="flex flex-col gap-3">
-              {semCategoria.map((p) => (
-                <div key={p.id} className="bg-white rounded-xl shadow p-4">
-                  <p className="font-medium">{p.nome}</p>
-                  {p.descricao && <p className="text-sm text-gray-500">{p.descricao}</p>}
-                  <p className="text-sm font-semibold mt-1">{formatarPreco(p.preco)}</p>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
+          {semCategoria.length > 0 && (
+            <section>
+              <h2 className="text-lg font-semibold mb-2">Outros</h2>
+              <div className="flex flex-col gap-3">
+                {semCategoria.map((p) => (
+                  <CardProduto key={p.id} produto={p} />
+                ))}
+              </div>
+            </section>
+          )}
 
-        {(produtos ?? []).length === 0 && (
-          <p className="text-center text-gray-400 mt-8">
-            Essa loja ainda não cadastrou produtos.
-          </p>
-        )}
-      </div>
-    </main>
+          {(produtos ?? []).length === 0 && (
+            <p className="text-center text-gray-400 mt-8">
+              Essa loja ainda não cadastrou produtos.
+            </p>
+          )}
+        </div>
+
+        <BarraCarrinho whatsappLoja={loja.whatsapp ?? ''} nomeLoja={loja.nome} />
+      </main>
+    </CarrinhoProvider>
   )
 }

@@ -23,12 +23,20 @@ export default async function AdminPage() {
         <pre className="bg-gray-100 p-4 rounded-lg mt-4 text-sm overflow-auto">
           {JSON.stringify(lojista, null, 2)}
         </pre>
-        <a
-          href="/admin/produtos"
-          className="inline-block mt-4 bg-black text-white rounded-lg px-4 py-2 text-sm font-medium"
-        >
-          Gerenciar produtos do cardápio
-        </a>
+        <div className="flex gap-3 mt-4">
+          <a
+            href="/admin/produtos"
+            className="inline-block bg-black text-white rounded-lg px-4 py-2 text-sm font-medium"
+          >
+            Gerenciar produtos
+          </a>
+          <a
+            href="/admin/configuracoes"
+            className="inline-block border rounded-lg px-4 py-2 text-sm font-medium"
+          >
+            Configurações da loja
+          </a>
+        </div>
       </div>
     </main>
   )
