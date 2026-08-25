@@ -10,6 +10,13 @@ function adminClient() {
 }
 
 export async function POST(req: Request) {
+  const tokenEsperado = process.env.ASAAS_WEBHOOK_TOKEN
+  const tokenRecebido = req.headers.get('asaas-access-token')
+
+  if (tokenEsperado && tokenRecebido !== tokenEsperado) {
+    return NextResponse.json({ error: 'Token inválido' }, { status: 401 })
+  }
+
   const body = await req.json()
 
   const evento = body.event as string
