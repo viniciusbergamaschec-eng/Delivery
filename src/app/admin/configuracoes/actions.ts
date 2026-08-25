@@ -8,6 +8,7 @@ export async function salvarConfiguracoes(_prevState: unknown, formData: FormDat
   const whatsapp = String(formData.get('whatsapp'))
   const endereco = String(formData.get('endereco'))
   const horario_funcionamento = String(formData.get('horario_funcionamento'))
+  const cor_primaria = String(formData.get('cor_primaria'))
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -23,7 +24,7 @@ export async function salvarConfiguracoes(_prevState: unknown, formData: FormDat
 
   const { error } = await supabase
     .from('lojas')
-    .update({ nome, whatsapp, endereco, horario_funcionamento })
+    .update({ nome, whatsapp, endereco, horario_funcionamento, cor_primaria })
     .eq('id', lojista.loja_id)
 
   if (error) return { erro: error.message }

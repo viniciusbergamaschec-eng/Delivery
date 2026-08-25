@@ -42,6 +42,12 @@ export default async function AdminPage() {
           >
             Configurações da loja
           </a>
+          <a
+            href="/admin/entrega"
+            className="inline-block border rounded-lg px-4 py-2 text-sm font-medium"
+          >
+            Regiões de entrega
+          </a>
         </div>
       </div>
     </main>

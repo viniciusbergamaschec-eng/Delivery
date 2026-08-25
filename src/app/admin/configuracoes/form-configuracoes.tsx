@@ -8,6 +8,7 @@ type Loja = {
   whatsapp: string | null
   endereco: string | null
   horario_funcionamento: string | null
+  cor_primaria: string | null
   slug: string
 }
 
@@ -59,6 +60,15 @@ export default function FormConfiguracoes({ loja }: { loja: Loja }) {
             defaultValue={loja.horario_funcionamento ?? ''}
             placeholder="Seg a Sáb, 18h às 23h"
             className="w-full border rounded-lg px-3 py-2 mt-1"
+          />
+        </div>
+        <div>
+          <label className="text-sm font-medium">Cor principal do cardápio</label>
+          <input
+            name="cor_primaria"
+            type="color"
+            defaultValue={loja.cor_primaria ?? '#16a34a'}
+            className="w-full h-11 border rounded-lg mt-1 px-1"
           />
         </div>
         <button

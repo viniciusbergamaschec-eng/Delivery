@@ -12,14 +12,20 @@ function limparTelefone(numero: string) {
   return numero.replace(/\D/g, '')
 }
 
+type Regiao = { id: string; nome: string; taxa: number }
+
 export default function BarraCarrinho({
   whatsappLoja,
   nomeLoja,
   lojaId,
+  corPrimaria,
+  regioes,
 }: {
   whatsappLoja: string
   nomeLoja: string
   lojaId: string
+  corPrimaria: string
+  regioes: Regiao[]
 }) {
   const { itens, alterarQuantidade, total, quantidadeTotal, limpar } = useCarrinho()
   const [aberto, setAberto] = useState(false)
@@ -27,10 +33,15 @@ export default function BarraCarrinho({
   const [nome, setNome] = useState('')
   const [telefone, setTelefone] = useState('')
   const [endereco, setEndereco] = useState('')
+  const [regiaoId, setRegiaoId] = useState('')
   const [erro, setErro] = useState('')
   const [enviando, setEnviando] = useState(false)
 
   if (quantidadeTotal === 0 && !aberto) return null
+
+  const regiaoSelecionada = regioes.find((r) => r.id === regiaoId)
+  const taxaEntrega = tipoEntrega === 'entrega' ? (regiaoSelecionada?.taxa ?? 0) : 0
+  const totalComTaxa = total + taxaEntrega
 
   function montarMensagem() {
     const linhas: string[] = []
@@ -40,6 +51,7 @@ export default function BarraCarrinho({
     linhas.push(`*Telefone:* ${telefone}`)
     linhas.push(`*Tipo:* ${tipoEntrega === 'entrega' ? 'Entrega' : 'Retirada no local'}`)
     if (tipoEntrega === 'entrega') {
+      linhas.push(`*Região:* ${regiaoSelecionada?.nome ?? '-'}`)
       linhas.push(`*Endereço:* ${endereco}`)
     }
     linhas.push('')
@@ -47,8 +59,12 @@ export default function BarraCarrinho({
     itens.forEach((i) => {
       linhas.push(`${i.quantidade}x ${i.nome} — ${formatarPreco(i.preco * i.quantidade)}`)
     })
+    if (taxaEntrega > 0) {
+      linhas.push('')
+      linhas.push(`*Taxa de entrega:* ${formatarPreco(taxaEntrega)}`)
+    }
     linhas.push('')
-    linhas.push(`*Total: ${formatarPreco(total)}*`)
+    linhas.push(`*Total: ${formatarPreco(totalComTaxa)}*`)
     return linhas.join('\n')
   }
 
@@ -62,6 +78,10 @@ export default function BarraCarrinho({
       setErro('Preencha o endereço de entrega.')
       return
     }
+    if (tipoEntrega === 'entrega' && regioes.length > 0 && !regiaoId) {
+      setErro('Selecione a região de entrega.')
+      return
+    }
 
     setEnviando(true)
     const resultado = await salvarPedido({
@@ -70,7 +90,9 @@ export default function BarraCarrinho({
       clienteTelefone: telefone,
       tipoEntrega,
       endereco: tipoEntrega === 'entrega' ? endereco : undefined,
-      total,
+      total: totalComTaxa,
+      taxaEntrega,
+      regiaoEntrega: regiaoSelecionada?.nome,
       itens: itens.map((i) => ({ nome: i.nome, preco: i.preco, quantidade: i.quantidade })),
     })
     setEnviando(false)
@@ -92,63 +114,73 @@ export default function BarraCarrinho({
       {!aberto && (
         <button
           onClick={() => setAberto(true)}
-          className="fixed bottom-4 left-4 right-4 max-w-2xl mx-auto bg-black text-white rounded-xl py-3 px-4 flex items-center justify-between font-medium shadow-lg"
+          style={{ backgroundColor: corPrimaria }}
+          className="fixed bottom-4 left-4 right-4 max-w-2xl mx-auto text-white rounded-2xl py-4 px-5 flex items-center justify-between font-semibold shadow-xl active:scale-[0.98] transition-transform"
         >
-          <span>{quantidadeTotal} {quantidadeTotal === 1 ? 'item' : 'itens'} no carrinho</span>
+          <span className="flex items-center gap-2">
+            <span className="bg-white/25 rounded-full w-6 h-6 flex items-center justify-center text-xs">
+              {quantidadeTotal}
+            </span>
+            Ver carrinho
+          </span>
           <span>{formatarPreco(total)}</span>
         </button>
       )}
 
       {aberto && (
-        <div className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-50">
-          <div className="bg-white rounded-t-2xl md:rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-5">
+        <div className="fixed inset-0 bg-black/60 flex items-end md:items-center justify-center z-50">
+          <div className="bg-white rounded-t-3xl md:rounded-3xl w-full max-w-lg max-h-[92vh] overflow-y-auto p-5">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="font-bold text-lg">Seu pedido</h2>
-              <button onClick={() => setAberto(false)} className="text-gray-400">
-                Fechar
+              <h2 className="font-bold text-xl">Seu pedido</h2>
+              <button onClick={() => setAberto(false)} className="text-gray-400 text-2xl leading-none">
+                ×
               </button>
             </div>
 
-            <div className="flex flex-col gap-2 mb-4">
+            <div className="flex flex-col gap-3 mb-4">
               {itens.map((i) => (
                 <div key={i.id} className="flex items-center justify-between text-sm">
-                  <span>{i.nome}</span>
+                  <span className="flex-1">{i.nome}</span>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => alterarQuantidade(i.id, i.quantidade - 1)}
-                      className="border rounded w-6 h-6"
+                      className="border rounded-full w-7 h-7 font-medium"
                     >
                       -
                     </button>
-                    <span>{i.quantidade}</span>
+                    <span className="w-4 text-center">{i.quantidade}</span>
                     <button
                       onClick={() => alterarQuantidade(i.id, i.quantidade + 1)}
-                      className="border rounded w-6 h-6"
+                      className="border rounded-full w-7 h-7 font-medium"
                     >
                       +
                     </button>
-                    <span className="w-20 text-right">{formatarPreco(i.preco * i.quantidade)}</span>
+                    <span className="w-20 text-right font-medium">
+                      {formatarPreco(i.preco * i.quantidade)}
+                    </span>
                   </div>
                 </div>
               ))}
-              {itens.length === 0 && (
-                <p className="text-sm text-gray-400">Carrinho vazio.</p>
-              )}
+              {itens.length === 0 && <p className="text-sm text-gray-400">Carrinho vazio.</p>}
             </div>
 
-            <p className="font-semibold text-right mb-4">Total: {formatarPreco(total)}</p>
-
-            <div className="flex flex-col gap-3 border-t pt-4">
+            <div className="flex flex-col gap-4 border-t pt-4">
               <div className="flex gap-2">
                 <button
                   onClick={() => setTipoEntrega('retirada')}
-                  className={`flex-1 border rounded-lg py-2 text-sm ${tipoEntrega === 'retirada' ? 'bg-black text-white' : ''}`}
+                  className={`flex-1 border rounded-xl py-2.5 text-sm font-medium transition-colors ${
+                    tipoEntrega === 'retirada' ? 'text-white border-transparent' : 'text-gray-600'
+                  }`}
+                  style={tipoEntrega === 'retirada' ? { backgroundColor: corPrimaria } : {}}
                 >
                   Retirada no local
                 </button>
                 <button
                   onClick={() => setTipoEntrega('entrega')}
-                  className={`flex-1 border rounded-lg py-2 text-sm ${tipoEntrega === 'entrega' ? 'bg-black text-white' : ''}`}
+                  className={`flex-1 border rounded-xl py-2.5 text-sm font-medium transition-colors ${
+                    tipoEntrega === 'entrega' ? 'text-white border-transparent' : 'text-gray-600'
+                  }`}
+                  style={tipoEntrega === 'entrega' ? { backgroundColor: corPrimaria } : {}}
                 >
                   Entrega
                 </button>
@@ -158,29 +190,63 @@ export default function BarraCarrinho({
                 value={nome}
                 onChange={(e) => setNome(e.target.value)}
                 placeholder="Seu nome"
-                className="border rounded-lg px-3 py-2 text-sm"
+                className="border rounded-xl px-4 py-2.5 text-sm"
               />
               <input
                 value={telefone}
                 onChange={(e) => setTelefone(e.target.value)}
                 placeholder="Seu telefone (com DDD)"
-                className="border rounded-lg px-3 py-2 text-sm"
+                className="border rounded-xl px-4 py-2.5 text-sm"
               />
+
               {tipoEntrega === 'entrega' && (
-                <input
-                  value={endereco}
-                  onChange={(e) => setEndereco(e.target.value)}
-                  placeholder="Endereço completo"
-                  className="border rounded-lg px-3 py-2 text-sm"
-                />
+                <>
+                  {regioes.length > 0 && (
+                    <select
+                      value={regiaoId}
+                      onChange={(e) => setRegiaoId(e.target.value)}
+                      className="border rounded-xl px-4 py-2.5 text-sm"
+                    >
+                      <option value="">Selecione a região de entrega</option>
+                      {regioes.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.nome} — {formatarPreco(r.taxa)}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  <input
+                    value={endereco}
+                    onChange={(e) => setEndereco(e.target.value)}
+                    placeholder="Endereço completo (rua, número, bairro)"
+                    className="border rounded-xl px-4 py-2.5 text-sm"
+                  />
+                </>
               )}
+
+              <div className="flex flex-col gap-1 text-sm border-t pt-3">
+                <div className="flex justify-between text-gray-500">
+                  <span>Subtotal</span>
+                  <span>{formatarPreco(total)}</span>
+                </div>
+                {taxaEntrega > 0 && (
+                  <div className="flex justify-between text-gray-500">
+                    <span>Taxa de entrega</span>
+                    <span>{formatarPreco(taxaEntrega)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-bold text-base">
+                  <span>Total</span>
+                  <span>{formatarPreco(totalComTaxa)}</span>
+                </div>
+              </div>
 
               {erro && <p className="text-red-600 text-sm">{erro}</p>}
 
               <button
                 onClick={enviarPedido}
                 disabled={itens.length === 0 || enviando}
-                className="bg-green-600 text-white rounded-lg py-3 font-medium disabled:opacity-50"
+                className="bg-green-600 text-white rounded-xl py-3.5 font-semibold disabled:opacity-50 active:scale-[0.98] transition-transform"
               >
                 {enviando ? 'Enviando...' : 'Enviar pedido pelo WhatsApp'}
               </button>

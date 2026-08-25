@@ -14,6 +14,8 @@ export async function salvarPedido(dados: {
   clienteTelefone: string
   tipoEntrega: 'retirada' | 'entrega'
   endereco?: string
+  taxaEntrega?: number
+  regiaoEntrega?: string
   total: number
   itens: ItemPedido[]
 }) {
@@ -27,6 +29,8 @@ export async function salvarPedido(dados: {
       cliente_telefone: dados.clienteTelefone,
       tipo_entrega: dados.tipoEntrega,
       endereco: dados.endereco ?? null,
+      taxa_entrega: dados.taxaEntrega ?? 0,
+      regiao_entrega: dados.regiaoEntrega ?? null,
       total: dados.total,
     })
     .select()
