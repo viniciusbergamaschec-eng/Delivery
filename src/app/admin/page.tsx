@@ -48,6 +48,12 @@ export default async function AdminPage() {
           >
             Regiões de entrega
           </a>
+          <a
+            href="/admin/assinatura"
+            className="inline-block bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium"
+          >
+            Minha assinatura
+          </a>
         </div>
       </div>
     </main>
