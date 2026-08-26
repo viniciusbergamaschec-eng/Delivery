@@ -1,0 +1,706 @@
+diff --git a/src/app/admin/dashboard/filtro-data.tsx b/src/app/admin/dashboard/filtro-data.tsx
+new file mode 100644
+index 0000000..4fcb953
+--- /dev/null
++++ b/src/app/admin/dashboard/filtro-data.tsx
+@@ -0,0 +1,88 @@
++'use client'
++
++import { useRouter } from 'next/navigation'
++import { useState } from 'react'
++
++const OPCOES_BASE = [
++  { valor: 'hoje', label: 'Hoje' },
++  { valor: 'semana', label: 'Esta semana' },
++  { valor: 'mes', label: 'Este mês' },
++  { valor: 'personalizado', label: 'Personalizado' },
++] as const
++
++export default function FiltroData({
++  periodo,
++  de,
++  ate,
++  basePath = '/admin/dashboard',
++  mostrarTodos = false,
++}: {
++  periodo: string
++  de?: string
++  ate?: string
++  basePath?: string
++  mostrarTodos?: boolean
++}) {
++  const router = useRouter()
++  const [dataDe, setDataDe] = useState(de ?? '')
++  const [dataAte, setDataAte] = useState(ate ?? '')
++
++  const OPCOES = mostrarTodos ? [{ valor: 'todos', label: 'Todos' }, ...OPCOES_BASE] : OPCOES_BASE
++
++  function irPara(novoPeriodo: string, novoDe?: string, novoAte?: string) {
++    const query = new URLSearchParams({ periodo: novoPeriodo })
++    if (novoPeriodo === 'personalizado' && novoDe) {
++      query.set('de', novoDe)
++      if (novoAte) query.set('ate', novoAte)
++    }
++    router.push(`${basePath}?${query.toString()}`)
++  }
++
++  return (
++    <div className="flex flex-col gap-3">
++      <div className="flex gap-2 flex-wrap">
++        {OPCOES.map((op) => (
++          <button
++            key={op.valor}
++            onClick={() => irPara(op.valor)}
++            className={`text-sm rounded-lg px-3 py-1.5 border font-medium ${
++              periodo === op.valor ? 'bg-black text-white border-black' : 'text-gray-600'
++            }`}
++          >
++            {op.label}
++          </button>
++        ))}
++      </div>
++
++      {periodo === 'personalizado' && (
++        <div className="flex items-end gap-2 flex-wrap">
++          <div className="flex flex-col gap-1">
++            <label className="text-xs text-gray-500">De</label>
++            <input
++              type="date"
++              value={dataDe}
++              onChange={(e) => setDataDe(e.target.value)}
++              className="border rounded-lg px-3 py-1.5 text-sm"
++            />
++          </div>
++          <div className="flex flex-col gap-1">
++            <label className="text-xs text-gray-500">Até</label>
++            <input
++              type="date"
++              value={dataAte}
++              onChange={(e) => setDataAte(e.target.value)}
++              className="border rounded-lg px-3 py-1.5 text-sm"
++            />
++          </div>
++          <button
++            onClick={() => irPara('personalizado', dataDe, dataAte)}
++            disabled={!dataDe}
++            className="bg-black text-white text-sm rounded-lg px-3 py-1.5 disabled:opacity-40"
++          >
++            Aplicar
++          </button>
++        </div>
++      )}
++    </div>
++  )
++}
+diff --git a/src/app/admin/dashboard/page.tsx b/src/app/admin/dashboard/page.tsx
+new file mode 100644
+index 0000000..b60b11b
+--- /dev/null
++++ b/src/app/admin/dashboard/page.tsx
+@@ -0,0 +1,107 @@
++import { createClient } from '@/lib/supabase/server'
++import { redirect } from 'next/navigation'
++import FiltroData from './filtro-data'
++
++type Periodo = 'hoje' | 'semana' | 'mes' | 'personalizado'
++
++function calcularIntervalo(periodo: Periodo, de?: string, ate?: string) {
++  const agora = new Date()
++  const inicioHoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate())
++
++  if (periodo === 'personalizado' && de) {
++    const inicio = new Date(`${de}T00:00:00`)
++    const fim = ate ? new Date(`${ate}T23:59:59.999`) : new Date(`${de}T23:59:59.999`)
++    return { inicio, fim }
++  }
++
++  if (periodo === 'semana') {
++    const diaSemana = inicioHoje.getDay() // 0 = domingo
++    const inicio = new Date(inicioHoje)
++    inicio.setDate(inicio.getDate() - diaSemana)
++    return { inicio, fim: agora }
++  }
++
++  if (periodo === 'mes') {
++    const inicio = new Date(agora.getFullYear(), agora.getMonth(), 1)
++    return { inicio, fim: agora }
++  }
++
++  // hoje
++  return { inicio: inicioHoje, fim: agora }
++}
++
++function formatarPreco(preco: number) {
++  return preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
++}
++
++export default async function DashboardPage({
++  searchParams,
++}: {
++  searchParams: Promise<{ periodo?: string; de?: string; ate?: string }>
++}) {
++  const params = await searchParams
++  const periodo = (params.periodo as Periodo) ?? 'hoje'
++
++  const supabase = await createClient()
++  const { data: { user } } = await supabase.auth.getUser()
++  if (!user) redirect('/entrar')
++
++  const { data: lojista } = await supabase
++    .from('lojistas')
++    .select('loja_id')
++    .eq('id', user.id)
++    .single()
++
++  if (!lojista) redirect('/entrar')
++
++  const { inicio, fim } = calcularIntervalo(periodo, params.de, params.ate)
++
++  const { data: pedidos } = await supabase
++    .from('pedidos')
++    .select('status, total, criado_em')
++    .eq('loja_id', lojista.loja_id)
++    .gte('criado_em', inicio.toISOString())
++    .lte('criado_em', fim.toISOString())
++
++  const lista = pedidos ?? []
++  const cancelados = lista.filter((p) => p.status === 'cancelado')
++  const validos = lista.filter((p) => p.status !== 'cancelado')
++  const faturamento = validos.reduce((soma, p) => soma + Number(p.total), 0)
++  const ticketMedio = validos.length > 0 ? faturamento / validos.length : 0
++
++  return (
++    <main className="min-h-screen bg-gray-50 p-4 md:p-8">
++      <div className="max-w-3xl mx-auto">
++        <h1 className="text-2xl font-bold mb-1">Dashboard</h1>
++        <p className="text-gray-500 text-sm mb-6">
++          Acompanhe pedidos e faturamento por período.
++        </p>
++
++        <FiltroData periodo={periodo} de={params.de} ate={params.ate} />
++
++        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
++          <div className="bg-white rounded-xl shadow p-4">
++            <p className="text-xs text-gray-400">Pedidos</p>
++            <p className="text-2xl font-bold">{lista.length}</p>
++          </div>
++          <div className="bg-white rounded-xl shadow p-4">
++            <p className="text-xs text-gray-400">Cancelados</p>
++            <p className="text-2xl font-bold">{cancelados.length}</p>
++          </div>
++          <div className="bg-white rounded-xl shadow p-4">
++            <p className="text-xs text-gray-400">Faturamento</p>
++            <p className="text-2xl font-bold">{formatarPreco(faturamento)}</p>
++          </div>
++          <div className="bg-white rounded-xl shadow p-4">
++            <p className="text-xs text-gray-400">Ticket médio</p>
++            <p className="text-2xl font-bold">{formatarPreco(ticketMedio)}</p>
++          </div>
++        </div>
++
++        <p className="text-xs text-gray-400 mt-3">
++          Faturamento e ticket médio não contam pedidos cancelados.
++        </p>
++      </div>
++    </main>
++  )
++}
+diff --git a/src/app/admin/page.tsx b/src/app/admin/page.tsx
+index ba12503..3de2072 100644
+--- a/src/app/admin/page.tsx
++++ b/src/app/admin/page.tsx
+@@ -30,6 +30,12 @@ export default async function AdminPage() {
+           >
+             Ver pedidos
+           </a>
++          <a
++            href="/admin/dashboard"
++            className="inline-block bg-purple-600 text-white rounded-lg px-4 py-2 text-sm font-medium"
++          >
++            Dashboard
++          </a>
+           <a
+             href="/admin/produtos"
+             className="inline-block bg-black text-white rounded-lg px-4 py-2 text-sm font-medium"
+diff --git a/src/app/admin/pedidos/lista-pedidos.tsx b/src/app/admin/pedidos/lista-pedidos.tsx
+index 11d02c6..248880d 100644
+--- a/src/app/admin/pedidos/lista-pedidos.tsx
++++ b/src/app/admin/pedidos/lista-pedidos.tsx
+@@ -19,16 +19,27 @@ type Pedido = {
+   endereco: string | null
+   total: number
+   status: string
++  forma_pagamento: string
+   criado_em: string
+   pedido_itens: ItemPedido[]
+ }
+ 
+-const STATUS_LABEL: Record<string, string> = {
+-  recebido: 'Recebido',
+-  preparo: 'Em preparo',
+-  pronto: 'Pronto',
+-  entregue: 'Entregue',
+-  cancelado: 'Cancelado',
++const LABEL_PAGAMENTO: Record<string, string> = {
++  pix: 'Pix',
++  dinheiro: 'Dinheiro',
++  cartao_entrega: 'Cartão na entrega/retirada',
++}
++
++// Rótulo depende do tipo de entrega: "pronto" é uma etapa genérica no banco,
++// mas para o lojista e o cliente ela significa coisas diferentes se é
++// retirada no local ou entrega no endereço.
++function statusLabel(status: string, tipoEntrega: string) {
++  if (status === 'recebido') return 'Recebido'
++  if (status === 'preparo') return 'Em preparo'
++  if (status === 'pronto') return tipoEntrega === 'entrega' ? 'Saiu para entrega' : 'Pronto para retirada'
++  if (status === 'entregue') return tipoEntrega === 'entrega' ? 'Entregue' : 'Retirado'
++  if (status === 'cancelado') return 'Cancelado'
++  return status
+ }
+ 
+ const STATUS_COR: Record<string, string> = {
+@@ -77,7 +88,7 @@ export default function ListaPedidos({ pedidos }: { pedidos: Pedido[] }) {
+           <div key={pedido.id} className="bg-white rounded-xl shadow p-4">
+             <div className="flex items-center justify-between mb-2">
+               <span className={`text-xs font-medium px-2 py-1 rounded-full ${STATUS_COR[pedido.status]}`}>
+-                {STATUS_LABEL[pedido.status] ?? pedido.status}
++                {statusLabel(pedido.status, pedido.tipo_entrega)}
+               </span>
+               <span className="text-xs text-gray-400">{formatarHora(pedido.criado_em)}</span>
+             </div>
+@@ -87,6 +98,9 @@ export default function ListaPedidos({ pedidos }: { pedidos: Pedido[] }) {
+             <p className="text-sm text-gray-500">
+               {pedido.tipo_entrega === 'entrega' ? `Entrega — ${pedido.endereco}` : 'Retirada no local'}
+             </p>
++            <p className="text-sm text-gray-500">
++              Pagamento: {LABEL_PAGAMENTO[pedido.forma_pagamento] ?? pedido.forma_pagamento}
++            </p>
+ 
+             <ul className="text-sm mt-2 border-t pt-2">
+               {pedido.pedido_itens.map((item) => (
+@@ -105,7 +119,7 @@ export default function ListaPedidos({ pedidos }: { pedidos: Pedido[] }) {
+                   onClick={() => atualizarStatusPedido(pedido.id, proximo)}
+                   className="bg-black text-white text-sm rounded-lg px-3 py-1.5"
+                 >
+-                  Marcar como {STATUS_LABEL[proximo]}
++                  Marcar como {statusLabel(proximo, pedido.tipo_entrega)}
+                 </button>
+               )}
+               {pedido.status !== 'cancelado' && pedido.status !== 'entregue' && (
+diff --git a/src/app/admin/pedidos/page.tsx b/src/app/admin/pedidos/page.tsx
+index 8a61ff3..6d768ee 100644
+--- a/src/app/admin/pedidos/page.tsx
++++ b/src/app/admin/pedidos/page.tsx
+@@ -1,8 +1,45 @@
+ import { createClient } from '@/lib/supabase/server'
+ import { redirect } from 'next/navigation'
+ import ListaPedidos from './lista-pedidos'
++import FiltroData from '../dashboard/filtro-data'
++
++type Periodo = 'hoje' | 'semana' | 'mes' | 'personalizado' | 'todos'
++
++function calcularIntervalo(periodo: Periodo, de?: string, ate?: string) {
++  const agora = new Date()
++  const inicioHoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate())
++
++  if (periodo === 'personalizado' && de) {
++    const inicio = new Date(`${de}T00:00:00`)
++    const fim = ate ? new Date(`${ate}T23:59:59.999`) : new Date(`${de}T23:59:59.999`)
++    return { inicio, fim }
++  }
++
++  if (periodo === 'semana') {
++    const inicio = new Date(inicioHoje)
++    inicio.setDate(inicio.getDate() - inicioHoje.getDay())
++    return { inicio, fim: agora }
++  }
++
++  if (periodo === 'mes') {
++    return { inicio: new Date(agora.getFullYear(), agora.getMonth(), 1), fim: agora }
++  }
++
++  if (periodo === 'todos') {
++    return null
++  }
++
++  return { inicio: inicioHoje, fim: agora }
++}
++
++export default async function PedidosPage({
++  searchParams,
++}: {
++  searchParams: Promise<{ periodo?: string; de?: string; ate?: string }>
++}) {
++  const params = await searchParams
++  const periodo = (params.periodo as Periodo) ?? 'todos'
+ 
+-export default async function PedidosPage() {
+   const supabase = await createClient()
+   const { data: { user } } = await supabase.auth.getUser()
+   if (!user) redirect('/entrar')
+@@ -15,12 +52,20 @@ export default async function PedidosPage() {
+ 
+   if (!lojista) redirect('/entrar')
+ 
+-  const { data: pedidos } = await supabase
++  const intervalo = calcularIntervalo(periodo, params.de, params.ate)
++
++  let query = supabase
+     .from('pedidos')
+     .select('*, pedido_itens(*)')
+     .eq('loja_id', lojista.loja_id)
+     .order('criado_em', { ascending: false })
+ 
++  if (intervalo) {
++    query = query.gte('criado_em', intervalo.inicio.toISOString()).lte('criado_em', intervalo.fim.toISOString())
++  }
++
++  const { data: pedidos } = await query
++
+   return (
+     <main className="min-h-screen bg-gray-50 p-4 md:p-8">
+       <div className="max-w-3xl mx-auto">
+@@ -28,6 +73,9 @@ export default async function PedidosPage() {
+         <p className="text-gray-500 text-sm mb-6">
+           Acompanhe e atualize o status dos pedidos recebidos.
+         </p>
++        <div className="mb-6">
++          <FiltroData periodo={periodo} de={params.de} ate={params.ate} basePath="/admin/pedidos" mostrarTodos />
++        </div>
+         <ListaPedidos pedidos={pedidos ?? []} />
+       </div>
+     </main>
+diff --git a/src/app/loja/[slug]/actions.ts b/src/app/loja/[slug]/actions.ts
+index 8eb0dc7..34b1630 100644
+--- a/src/app/loja/[slug]/actions.ts
++++ b/src/app/loja/[slug]/actions.ts
+@@ -16,6 +16,7 @@ export async function salvarPedido(dados: {
+   endereco?: string
+   taxaEntrega?: number
+   regiaoEntrega?: string
++  formaPagamento: 'pix' | 'dinheiro' | 'cartao_entrega'
+   total: number
+   itens: ItemPedido[]
+ }) {
+@@ -31,6 +32,7 @@ export async function salvarPedido(dados: {
+       endereco: dados.endereco ?? null,
+       taxa_entrega: dados.taxaEntrega ?? 0,
+       regiao_entrega: dados.regiaoEntrega ?? null,
++      forma_pagamento: dados.formaPagamento,
+       total: dados.total,
+     })
+     .select()
+diff --git a/src/app/loja/[slug]/barra-carrinho.tsx b/src/app/loja/[slug]/barra-carrinho.tsx
+index e85bd21..3244991 100644
+--- a/src/app/loja/[slug]/barra-carrinho.tsx
++++ b/src/app/loja/[slug]/barra-carrinho.tsx
+@@ -14,6 +14,12 @@ function limparTelefone(numero: string) {
+ 
+ type Regiao = { id: string; nome: string; taxa: number }
+ 
++const LABEL_PAGAMENTO: Record<'pix' | 'dinheiro' | 'cartao_entrega', string> = {
++  pix: 'Pix',
++  dinheiro: 'Dinheiro na entrega/retirada',
++  cartao_entrega: 'Cartão na entrega/retirada',
++}
++
+ export default function BarraCarrinho({
+   whatsappLoja,
+   nomeLoja,
+@@ -34,8 +40,10 @@ export default function BarraCarrinho({
+   const [telefone, setTelefone] = useState('')
+   const [endereco, setEndereco] = useState('')
+   const [regiaoId, setRegiaoId] = useState('')
++  const [formaPagamento, setFormaPagamento] = useState<'pix' | 'dinheiro' | 'cartao_entrega'>('dinheiro')
+   const [erro, setErro] = useState('')
+   const [enviando, setEnviando] = useState(false)
++  const [linkAcompanhar, setLinkAcompanhar] = useState('')
+ 
+   if (quantidadeTotal === 0 && !aberto) return null
+ 
+@@ -64,6 +72,7 @@ export default function BarraCarrinho({
+       linhas.push(`*Taxa de entrega:* ${formatarPreco(taxaEntrega)}`)
+     }
+     linhas.push('')
++    linhas.push(`*Forma de pagamento:* ${LABEL_PAGAMENTO[formaPagamento]}`)
+     linhas.push(`*Total: ${formatarPreco(totalComTaxa)}*`)
+     return linhas.join('\n')
+   }
+@@ -93,6 +102,7 @@ export default function BarraCarrinho({
+       total: totalComTaxa,
+       taxaEntrega,
+       regiaoEntrega: regiaoSelecionada?.nome,
++      formaPagamento,
+       itens: itens.map((i) => ({ nome: i.nome, preco: i.preco, quantidade: i.quantidade })),
+     })
+     setEnviando(false)
+@@ -106,7 +116,11 @@ export default function BarraCarrinho({
+     const numeroLoja = limparTelefone(whatsappLoja)
+     window.open(`https://wa.me/55${numeroLoja}?text=${mensagem}`, '_blank')
+     limpar()
+-    setAberto(false)
++    if (resultado.pedidoId) {
++      setLinkAcompanhar(`/pedido/${resultado.pedidoId}`)
++    } else {
++      setAberto(false)
++    }
+   }
+ 
+   return (
+@@ -241,6 +255,29 @@ export default function BarraCarrinho({
+                 </div>
+               </div>
+ 
++              <div className="flex flex-col gap-2">
++                <span className="text-sm font-medium text-gray-700">Forma de pagamento</span>
++                <div className="flex gap-2">
++                  {(['pix', 'dinheiro', 'cartao_entrega'] as const).map((forma) => (
++                    <button
++                      key={forma}
++                      onClick={() => setFormaPagamento(forma)}
++                      className={`flex-1 border rounded-xl py-2 text-xs font-medium transition-colors ${
++                        formaPagamento === forma ? 'text-white border-transparent' : 'text-gray-600'
++                      }`}
++                      style={formaPagamento === forma ? { backgroundColor: corPrimaria } : {}}
++                    >
++                      {LABEL_PAGAMENTO[forma]}
++                    </button>
++                  ))}
++                </div>
++                {formaPagamento === 'pix' && (
++                  <p className="text-xs text-gray-400">
++                    A loja vai te passar a chave Pix pelo WhatsApp para o pagamento.
++                  </p>
++                )}
++              </div>
++
+               {erro && <p className="text-red-600 text-sm">{erro}</p>}
+ 
+               <button
+@@ -254,6 +291,33 @@ export default function BarraCarrinho({
+           </div>
+         </div>
+       )}
++
++      {linkAcompanhar && (
++        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
++          <div className="bg-white rounded-3xl w-full max-w-sm p-6 text-center">
++            <h2 className="font-bold text-xl mb-2">Pedido enviado!</h2>
++            <p className="text-sm text-gray-500 mb-5">
++              Acompanhe o status do seu pedido pelo link abaixo.
++            </p>
++            <a
++              href={linkAcompanhar}
++              style={{ backgroundColor: corPrimaria }}
++              className="block text-white rounded-xl py-3 font-semibold mb-2"
++            >
++              Acompanhar pedido
++            </a>
++            <button
++              onClick={() => {
++                setLinkAcompanhar('')
++                setAberto(false)
++              }}
++              className="text-sm text-gray-400 mt-1"
++            >
++              Fechar
++            </button>
++          </div>
++        </div>
++      )}
+     </>
+   )
+ }
+diff --git a/src/app/pedido/[id]/acompanhar-pedido.tsx b/src/app/pedido/[id]/acompanhar-pedido.tsx
+new file mode 100644
+index 0000000..b6811fe
+--- /dev/null
++++ b/src/app/pedido/[id]/acompanhar-pedido.tsx
+@@ -0,0 +1,114 @@
++'use client'
++
++import { useEffect, useState, useCallback } from 'react'
++import { createClient } from '@/lib/supabase/client'
++
++type StatusPedido = {
++  id: string
++  status: string
++  tipo_entrega: string
++  total: number
++  forma_pagamento: string
++  criado_em: string
++  nome_loja: string
++}
++
++const ETAPAS = ['recebido', 'preparo', 'pronto', 'entregue']
++
++function labelEtapa(etapa: string, tipoEntrega: string) {
++  if (etapa === 'recebido') return 'Pedido recebido'
++  if (etapa === 'preparo') return 'Em preparo'
++  if (etapa === 'pronto') return tipoEntrega === 'entrega' ? 'Saiu para entrega' : 'Pronto para retirada'
++  if (etapa === 'entregue') return tipoEntrega === 'entrega' ? 'Entregue' : 'Retirado'
++  return etapa
++}
++
++const LABEL_PAGAMENTO: Record<string, string> = {
++  pix: 'Pix',
++  dinheiro: 'Dinheiro na entrega/retirada',
++  cartao_entrega: 'Cartão na entrega/retirada',
++}
++
++function formatarPreco(preco: number) {
++  return preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
++}
++
++export default function AcompanharPedido({ pedidoId }: { pedidoId: string }) {
++  const [pedido, setPedido] = useState<StatusPedido | null>(null)
++  const [carregando, setCarregando] = useState(true)
++  const [erro, setErro] = useState(false)
++
++  const buscar = useCallback(async () => {
++    const supabase = createClient()
++    const { data, error } = await supabase.rpc('obter_status_pedido', { p_pedido_id: pedidoId })
++    if (error || !data || data.length === 0) {
++      setErro(true)
++    } else {
++      setPedido(data[0])
++    }
++    setCarregando(false)
++  }, [pedidoId])
++
++  useEffect(() => {
++    buscar()
++    const intervalo = setInterval(buscar, 15000)
++    return () => clearInterval(intervalo)
++  }, [buscar])
++
++  if (carregando) {
++    return <p className="text-gray-400 text-sm">Carregando pedido...</p>
++  }
++
++  if (erro || !pedido) {
++    return <p className="text-gray-500 text-sm">Pedido não encontrado.</p>
++  }
++
++  const cancelado = pedido.status === 'cancelado'
++  const passoAtual = ETAPAS.indexOf(pedido.status)
++
++  return (
++    <div className="bg-white rounded-3xl shadow p-6 w-full max-w-sm">
++      <p className="text-sm text-gray-400">{pedido.nome_loja}</p>
++      <h1 className="font-bold text-xl mb-6">Seu pedido</h1>
++
++      {cancelado ? (
++        <div className="bg-red-50 text-red-700 rounded-xl px-4 py-3 text-sm font-medium">
++          Este pedido foi cancelado.
++        </div>
++      ) : (
++        <div className="flex flex-col gap-4 mb-6">
++          {ETAPAS.map((etapa, i) => {
++            const feito = i <= passoAtual
++            return (
++              <div key={etapa} className="flex items-center gap-3">
++                <div
++                  className={`w-3 h-3 rounded-full shrink-0 ${
++                    feito ? 'bg-green-600' : 'bg-gray-200'
++                  }`}
++                />
++                <span className={`text-sm ${feito ? 'font-medium text-gray-900' : 'text-gray-400'}`}>
++                  {labelEtapa(etapa, pedido.tipo_entrega)}
++                </span>
++              </div>
++            )
++          })}
++        </div>
++      )}
++
++      <div className="border-t pt-4 flex flex-col gap-1 text-sm text-gray-500">
++        <div className="flex justify-between">
++          <span>Forma de pagamento</span>
++          <span className="font-medium text-gray-800">
++            {LABEL_PAGAMENTO[pedido.forma_pagamento] ?? pedido.forma_pagamento}
++          </span>
++        </div>
++        <div className="flex justify-between">
++          <span>Total</span>
++          <span className="font-medium text-gray-800">{formatarPreco(pedido.total)}</span>
++        </div>
++      </div>
++
++      <p className="text-xs text-gray-300 mt-4 text-center">Atualiza automaticamente</p>
++    </div>
++  )
++}
+diff --git a/src/app/pedido/[id]/page.tsx b/src/app/pedido/[id]/page.tsx
+new file mode 100644
+index 0000000..23ffb3d
+--- /dev/null
++++ b/src/app/pedido/[id]/page.tsx
+@@ -0,0 +1,11 @@
++import AcompanharPedido from './acompanhar-pedido'
++
++export default async function PedidoPage({ params }: { params: Promise<{ id: string }> }) {
++  const { id } = await params
++
++  return (
++    <main className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
++      <AcompanharPedido pedidoId={id} />
++    </main>
++  )
++}
+diff --git a/supabase/schema_status_pagamento.sql b/supabase/schema_status_pagamento.sql
+new file mode 100644
+index 0000000..d4bcee0
+--- /dev/null
++++ b/supabase/schema_status_pagamento.sql
+@@ -0,0 +1,49 @@
++-- Forma de pagamento escolhida pelo cliente no carrinho.
++-- Apenas registro: não há processamento de pagamento nem geração de Pix aqui.
++alter table pedidos add column if not exists forma_pagamento text not null default 'dinheiro';
++
++alter table pedidos drop constraint if exists pedidos_forma_pagamento_check;
++alter table pedidos add constraint pedidos_forma_pagamento_check
++  check (forma_pagamento in ('pix', 'dinheiro', 'cartao_entrega'));
++
++-- Acompanhamento do pedido pelo cliente, sem login.
++--
++-- Por que uma função em vez de uma policy de RLS "using (true)" para SELECT:
++-- uma policy pública de leitura na tabela `pedidos` permitiria que QUALQUER
++-- pessoa com a anon key listasse todos os pedidos de todas as lojas (nome,
++-- telefone, endereço de todo mundo), bastando não aplicar o filtro por id —
++-- RLS não sabe se a query no app tinha um .eq('id', ...) ou não, quem decide
++-- o que é acessível é a policy, não o código do frontend.
++--
++-- Essa função, em vez disso, só devolve dados de UM pedido específico, dado
++-- o id exato (que é um UUID praticamente impossível de adivinhar). Não dá
++-- pra usá-la para listar ou descobrir outros pedidos.
++create or replace function obter_status_pedido(p_pedido_id uuid)
++returns table (
++  id uuid,
++  status text,
++  tipo_entrega text,
++  total numeric,
++  forma_pagamento text,
++  criado_em timestamptz,
++  nome_loja text
++)
++language sql
++security definer
++set search_path = public
++as $$
++  select
++    p.id,
++    p.status,
++    p.tipo_entrega,
++    p.total,
++    p.forma_pagamento,
++    p.criado_em,
++    l.nome as nome_loja
++  from pedidos p
++  join lojas l on l.id = p.loja_id
++  where p.id = p_pedido_id;
++$$;
++
++-- Permite que o cliente (sem estar autenticado) chame a função pelo anon key.
++grant execute on function obter_status_pedido(uuid) to anon, authenticated;

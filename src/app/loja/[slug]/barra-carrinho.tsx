@@ -14,6 +14,12 @@ function limparTelefone(numero: string) {
 
 type Regiao = { id: string; nome: string; taxa: number }
 
+const LABEL_PAGAMENTO: Record<'pix' | 'dinheiro' | 'cartao_entrega', string> = {
+  pix: 'Pix',
+  dinheiro: 'Dinheiro na entrega/retirada',
+  cartao_entrega: 'Cartão na entrega/retirada',
+}
+
 export default function BarraCarrinho({
   whatsappLoja,
   nomeLoja,
@@ -34,8 +40,10 @@ export default function BarraCarrinho({
   const [telefone, setTelefone] = useState('')
   const [endereco, setEndereco] = useState('')
   const [regiaoId, setRegiaoId] = useState('')
+  const [formaPagamento, setFormaPagamento] = useState<'pix' | 'dinheiro' | 'cartao_entrega'>('dinheiro')
   const [erro, setErro] = useState('')
   const [enviando, setEnviando] = useState(false)
+  const [linkAcompanhar, setLinkAcompanhar] = useState('')
 
   if (quantidadeTotal === 0 && !aberto) return null
 
@@ -64,6 +72,7 @@ export default function BarraCarrinho({
       linhas.push(`*Taxa de entrega:* ${formatarPreco(taxaEntrega)}`)
     }
     linhas.push('')
+    linhas.push(`*Forma de pagamento:* ${LABEL_PAGAMENTO[formaPagamento]}`)
     linhas.push(`*Total: ${formatarPreco(totalComTaxa)}*`)
     return linhas.join('\n')
   }
@@ -93,6 +102,7 @@ export default function BarraCarrinho({
       total: totalComTaxa,
       taxaEntrega,
       regiaoEntrega: regiaoSelecionada?.nome,
+      formaPagamento,
       itens: itens.map((i) => ({ nome: i.nome, preco: i.preco, quantidade: i.quantidade })),
     })
     setEnviando(false)
@@ -106,7 +116,11 @@ export default function BarraCarrinho({
     const numeroLoja = limparTelefone(whatsappLoja)
     window.open(`https://wa.me/55${numeroLoja}?text=${mensagem}`, '_blank')
     limpar()
-    setAberto(false)
+    if (resultado.pedidoId) {
+      setLinkAcompanhar(`/pedido/${resultado.pedidoId}`)
+    } else {
+      setAberto(false)
+    }
   }
 
   return (
@@ -241,6 +255,29 @@ export default function BarraCarrinho({
                 </div>
               </div>
 
+              <div className="flex flex-col gap-2">
+                <span className="text-sm font-medium text-gray-700">Forma de pagamento</span>
+                <div className="flex gap-2">
+                  {(['pix', 'dinheiro', 'cartao_entrega'] as const).map((forma) => (
+                    <button
+                      key={forma}
+                      onClick={() => setFormaPagamento(forma)}
+                      className={`flex-1 border rounded-xl py-2 text-xs font-medium transition-colors ${
+                        formaPagamento === forma ? 'text-white border-transparent' : 'text-gray-600'
+                      }`}
+                      style={formaPagamento === forma ? { backgroundColor: corPrimaria } : {}}
+                    >
+                      {LABEL_PAGAMENTO[forma]}
+                    </button>
+                  ))}
+                </div>
+                {formaPagamento === 'pix' && (
+                  <p className="text-xs text-gray-400">
+                    A loja vai te passar a chave Pix pelo WhatsApp para o pagamento.
+                  </p>
+                )}
+              </div>
+
               {erro && <p className="text-red-600 text-sm">{erro}</p>}
 
               <button
@@ -251,6 +288,33 @@ export default function BarraCarrinho({
                 {enviando ? 'Enviando...' : 'Enviar pedido pelo WhatsApp'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {linkAcompanhar && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl w-full max-w-sm p-6 text-center">
+            <h2 className="font-bold text-xl mb-2">Pedido enviado!</h2>
+            <p className="text-sm text-gray-500 mb-5">
+              Acompanhe o status do seu pedido pelo link abaixo.
+            </p>
+            <a
+              href={linkAcompanhar}
+              style={{ backgroundColor: corPrimaria }}
+              className="block text-white rounded-xl py-3 font-semibold mb-2"
+            >
+              Acompanhar pedido
+            </a>
+            <button
+              onClick={() => {
+                setLinkAcompanhar('')
+                setAberto(false)
+              }}
+              className="text-sm text-gray-400 mt-1"
+            >
+              Fechar
+            </button>
           </div>
         </div>
       )}

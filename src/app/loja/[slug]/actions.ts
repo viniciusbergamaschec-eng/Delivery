@@ -16,6 +16,7 @@ export async function salvarPedido(dados: {
   endereco?: string
   taxaEntrega?: number
   regiaoEntrega?: string
+  formaPagamento: 'pix' | 'dinheiro' | 'cartao_entrega'
   total: number
   itens: ItemPedido[]
 }) {
@@ -31,6 +32,7 @@ export async function salvarPedido(dados: {
       endereco: dados.endereco ?? null,
       taxa_entrega: dados.taxaEntrega ?? 0,
       regiao_entrega: dados.regiaoEntrega ?? null,
+      forma_pagamento: dados.formaPagamento,
       total: dados.total,
     })
     .select()

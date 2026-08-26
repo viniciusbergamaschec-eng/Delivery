@@ -19,16 +19,27 @@ type Pedido = {
   endereco: string | null
   total: number
   status: string
+  forma_pagamento: string
   criado_em: string
   pedido_itens: ItemPedido[]
 }
 
-const STATUS_LABEL: Record<string, string> = {
-  recebido: 'Recebido',
-  preparo: 'Em preparo',
-  pronto: 'Pronto',
-  entregue: 'Entregue',
-  cancelado: 'Cancelado',
+const LABEL_PAGAMENTO: Record<string, string> = {
+  pix: 'Pix',
+  dinheiro: 'Dinheiro',
+  cartao_entrega: 'Cartão na entrega/retirada',
+}
+
+// Rótulo depende do tipo de entrega: "pronto" é uma etapa genérica no banco,
+// mas para o lojista e o cliente ela significa coisas diferentes se é
+// retirada no local ou entrega no endereço.
+function statusLabel(status: string, tipoEntrega: string) {
+  if (status === 'recebido') return 'Recebido'
+  if (status === 'preparo') return 'Em preparo'
+  if (status === 'pronto') return tipoEntrega === 'entrega' ? 'Saiu para entrega' : 'Pronto para retirada'
+  if (status === 'entregue') return tipoEntrega === 'entrega' ? 'Entregue' : 'Retirado'
+  if (status === 'cancelado') return 'Cancelado'
+  return status
 }
 
 const STATUS_COR: Record<string, string> = {
@@ -77,7 +88,7 @@ export default function ListaPedidos({ pedidos }: { pedidos: Pedido[] }) {
           <div key={pedido.id} className="bg-white rounded-xl shadow p-4">
             <div className="flex items-center justify-between mb-2">
               <span className={`text-xs font-medium px-2 py-1 rounded-full ${STATUS_COR[pedido.status]}`}>
-                {STATUS_LABEL[pedido.status] ?? pedido.status}
+                {statusLabel(pedido.status, pedido.tipo_entrega)}
               </span>
               <span className="text-xs text-gray-400">{formatarHora(pedido.criado_em)}</span>
             </div>
@@ -86,6 +97,9 @@ export default function ListaPedidos({ pedidos }: { pedidos: Pedido[] }) {
             <p className="text-sm text-gray-500">{pedido.cliente_telefone}</p>
             <p className="text-sm text-gray-500">
               {pedido.tipo_entrega === 'entrega' ? `Entrega — ${pedido.endereco}` : 'Retirada no local'}
+            </p>
+            <p className="text-sm text-gray-500">
+              Pagamento: {LABEL_PAGAMENTO[pedido.forma_pagamento] ?? pedido.forma_pagamento}
             </p>
 
             <ul className="text-sm mt-2 border-t pt-2">
@@ -105,7 +119,7 @@ export default function ListaPedidos({ pedidos }: { pedidos: Pedido[] }) {
                   onClick={() => atualizarStatusPedido(pedido.id, proximo)}
                   className="bg-black text-white text-sm rounded-lg px-3 py-1.5"
                 >
-                  Marcar como {STATUS_LABEL[proximo]}
+                  Marcar como {statusLabel(proximo, pedido.tipo_entrega)}
                 </button>
               )}
               {pedido.status !== 'cancelado' && pedido.status !== 'entregue' && (

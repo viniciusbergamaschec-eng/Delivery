@@ -31,6 +31,12 @@ export default async function AdminPage() {
             Ver pedidos
           </a>
           <a
+            href="/admin/dashboard"
+            className="inline-block bg-purple-600 text-white rounded-lg px-4 py-2 text-sm font-medium"
+          >
+            Dashboard
+          </a>
+          <a
             href="/admin/produtos"
             className="inline-block bg-black text-white rounded-lg px-4 py-2 text-sm font-medium"
           >
