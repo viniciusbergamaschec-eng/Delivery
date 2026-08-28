@@ -68,7 +68,7 @@ export default async function PedidosPage({
 
   return (
     <main className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         <h1 className="text-2xl font-bold mb-1">Pedidos</h1>
         <p className="text-gray-500 text-sm mb-6">
           Acompanhe e atualize o status dos pedidos recebidos.
