@@ -51,7 +51,7 @@ export default function BarraCarrinho({
   const taxaEntrega = tipoEntrega === 'entrega' ? (regiaoSelecionada?.taxa ?? 0) : 0
   const totalComTaxa = total + taxaEntrega
 
-  function montarMensagem() {
+  function montarMensagem(linkPedido?: string) {
     const linhas: string[] = []
     linhas.push(`*Novo pedido - ${nomeLoja}*`)
     linhas.push('')
@@ -74,6 +74,10 @@ export default function BarraCarrinho({
     linhas.push('')
     linhas.push(`*Forma de pagamento:* ${LABEL_PAGAMENTO[formaPagamento]}`)
     linhas.push(`*Total: ${formatarPreco(totalComTaxa)}*`)
+    if (linkPedido) {
+      linhas.push('')
+      linhas.push(`Acompanhe o pedido: ${linkPedido}`)
+    }
     return linhas.join('\n')
   }
 
@@ -112,7 +116,10 @@ export default function BarraCarrinho({
       return
     }
 
-    const mensagem = encodeURIComponent(montarMensagem())
+    const linkPedido = resultado.pedidoId
+      ? `${window.location.origin}/pedido/${resultado.pedidoId}`
+      : undefined
+    const mensagem = encodeURIComponent(montarMensagem(linkPedido))
     const numeroLoja = limparTelefone(whatsappLoja)
     window.open(`https://wa.me/55${numeroLoja}?text=${mensagem}`, '_blank')
     limpar()

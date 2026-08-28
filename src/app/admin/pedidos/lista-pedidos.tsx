@@ -72,7 +72,62 @@ function formatarHora(data: string) {
   })
 }
 
-export default function ListaPedidos({ pedidos: pedidosServidor }: { pedidos: Pedido[] }) {
+function imprimirComanda(pedido: Pedido, nomeLoja: string) {
+  const janela = window.open('', '_blank', 'width=380,height=600')
+  if (!janela) return
+
+  const itensHtml = pedido.pedido_itens
+    .map(
+      (item) => `
+      <tr>
+        <td>${item.quantidade}x ${item.produto_nome}</td>
+        <td style="text-align:right">${formatarPreco(item.preco_unitario * item.quantidade)}</td>
+      </tr>`
+    )
+    .join('')
+
+  janela.document.write(`
+    <html>
+      <head>
+        <title>Comanda</title>
+        <style>
+          body { font-family: monospace; font-size: 13px; width: 300px; margin: 0 auto; padding: 16px; }
+          h1 { font-size: 16px; text-align: center; margin: 0 0 4px; }
+          .sub { text-align: center; color: #555; margin-bottom: 12px; }
+          hr { border: none; border-top: 1px dashed #999; margin: 10px 0; }
+          table { width: 100%; border-collapse: collapse; }
+          td { padding: 2px 0; }
+          .total { font-weight: bold; font-size: 15px; }
+          .linha { display: flex; justify-content: space-between; }
+        </style>
+      </head>
+      <body>
+        <h1>${nomeLoja || 'Pedido'}</h1>
+        <p class="sub">${formatarHora(pedido.criado_em)}</p>
+        <hr />
+        <p><strong>Cliente:</strong> ${pedido.cliente_nome}</p>
+        <p><strong>Telefone:</strong> ${pedido.cliente_telefone}</p>
+        <p><strong>Tipo:</strong> ${pedido.tipo_entrega === 'entrega' ? `Entrega — ${pedido.endereco ?? ''}` : 'Retirada no local'}</p>
+        <p><strong>Pagamento:</strong> ${LABEL_PAGAMENTO[pedido.forma_pagamento] ?? pedido.forma_pagamento}</p>
+        <hr />
+        <table>${itensHtml}</table>
+        <hr />
+        <p class="linha total"><span>Total</span><span>${formatarPreco(pedido.total)}</span></p>
+      </body>
+    </html>
+  `)
+  janela.document.close()
+  janela.focus()
+  janela.print()
+}
+
+export default function ListaPedidos({
+  pedidos: pedidosServidor,
+  nomeLoja,
+}: {
+  pedidos: Pedido[]
+  nomeLoja: string
+}) {
   const router = useRouter()
   // Estado local pra mover o card na hora do clique (otimista), sem esperar
   // o round-trip do servidor — sensação mais fluida pro lojista organizando
@@ -136,6 +191,13 @@ export default function ListaPedidos({ pedidos: pedidosServidor }: { pedidos: Pe
                       className="group bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 p-3 relative"
                     >
                       <button
+                        onClick={() => imprimirComanda(pedido, nomeLoja)}
+                        className="absolute top-2 right-9 w-5 h-5 rounded-full text-gray-300 hover:text-gray-700 hover:bg-gray-100 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Imprimir comanda"
+                      >
+                        🖨
+                      </button>
+                      <button
                         onClick={() => cancelar(pedido)}
                         className="absolute top-2 right-2 w-5 h-5 rounded-full text-gray-300 hover:text-red-500 hover:bg-red-50 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
                         title="Cancelar pedido"
@@ -143,7 +205,7 @@ export default function ListaPedidos({ pedidos: pedidosServidor }: { pedidos: Pe
                         ✕
                       </button>
 
-                      <p className="font-medium text-sm pr-5">{pedido.cliente_nome}</p>
+                      <p className="font-medium text-sm pr-10">{pedido.cliente_nome}</p>
                       <p className="text-xs text-gray-400">{formatarHora(pedido.criado_em)}</p>
 
                       <p className="text-xs text-gray-500 mt-1.5 truncate">

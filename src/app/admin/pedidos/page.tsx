@@ -46,11 +46,13 @@ export default async function PedidosPage({
 
   const { data: lojista } = await supabase
     .from('lojistas')
-    .select('loja_id')
+    .select('loja_id, lojas(nome)')
     .eq('id', user.id)
     .single()
 
   if (!lojista) redirect('/entrar')
+
+  const nomeLoja = (lojista.lojas as unknown as { nome: string } | null)?.nome ?? ''
 
   const intervalo = calcularIntervalo(periodo, params.de, params.ate)
 
@@ -76,7 +78,7 @@ export default async function PedidosPage({
         <div className="mb-6">
           <FiltroData periodo={periodo} de={params.de} ate={params.ate} basePath="/admin/pedidos" mostrarTodos />
         </div>
-        <ListaPedidos pedidos={pedidos ?? []} />
+        <ListaPedidos pedidos={pedidos ?? []} nomeLoja={nomeLoja} />
       </div>
     </main>
   )
