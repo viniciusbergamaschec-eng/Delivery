@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { atualizarStatusPedido } from './actions'
 
@@ -121,6 +121,26 @@ function imprimirComanda(pedido: Pedido, nomeLoja: string) {
   janela.print()
 }
 
+// Gera um "ding" de dois tons direto no navegador — sem precisar hospedar
+// nem carregar arquivo de áudio.
+function tocarSino(ctx: AudioContext) {
+  const tocarTom = (frequencia: number, inicio: number, duracao: number) => {
+    const osc = ctx.createOscillator()
+    const ganho = ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.value = frequencia
+    ganho.gain.setValueAtTime(0, ctx.currentTime + inicio)
+    ganho.gain.linearRampToValueAtTime(0.25, ctx.currentTime + inicio + 0.02)
+    ganho.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + inicio + duracao)
+    osc.connect(ganho)
+    ganho.connect(ctx.destination)
+    osc.start(ctx.currentTime + inicio)
+    osc.stop(ctx.currentTime + inicio + duracao)
+  }
+  tocarTom(880, 0, 0.35)
+  tocarTom(1318.5, 0.12, 0.4)
+}
+
 export default function ListaPedidos({
   pedidos: pedidosServidor,
   nomeLoja,
@@ -129,6 +149,21 @@ export default function ListaPedidos({
   nomeLoja: string
 }) {
   const router = useRouter()
+  const audioCtxRef = useRef<AudioContext | null>(null)
+  const idsConhecidos = useRef<Set<string> | null>(null)
+  const [somAtivo, setSomAtivo] = useState(false)
+
+  function alternarSom() {
+    // O primeiro clique só "destrava" o áudio no navegador (política de
+    // autoplay exige um gesto do usuário antes de tocar qualquer som) e já
+    // liga o som. Cliques seguintes alternam normalmente.
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new AudioContext()
+      setSomAtivo(true)
+      return
+    }
+    setSomAtivo((atual) => !atual)
+  }
   // Estado local pra mover o card na hora do clique (otimista), sem esperar
   // o round-trip do servidor — sensação mais fluida pro lojista organizando
   // vários pedidos em sequência.
@@ -137,7 +172,18 @@ export default function ListaPedidos({
 
   useEffect(() => {
     setPedidos(pedidosServidor)
-  }, [pedidosServidor])
+
+    const idsAtuais = new Set(pedidosServidor.map((p) => p.id))
+    if (idsConhecidos.current) {
+      const chegouNovo = pedidosServidor.some(
+        (p) => !idsConhecidos.current!.has(p.id) && p.status !== 'cancelado'
+      )
+      if (chegouNovo && somAtivo && audioCtxRef.current) {
+        tocarSino(audioCtxRef.current)
+      }
+    }
+    idsConhecidos.current = idsAtuais
+  }, [pedidosServidor, somAtivo])
 
   useEffect(() => {
     const intervalo = setInterval(() => router.refresh(), 20000)
@@ -160,12 +206,35 @@ export default function ListaPedidos({
   const cancelados = pedidos.filter((p) => p.status === 'cancelado')
   const ativos = pedidos.filter((p) => p.status !== 'cancelado')
 
+  const botaoSom = (
+    <div className="self-end flex items-center gap-2">
+      {!somAtivo && (
+        <span className="text-xs text-gray-400">Clique para receber alerta sonoro de novos pedidos</span>
+      )}
+      <button
+        onClick={alternarSom}
+        className={`flex items-center gap-1.5 text-xs font-medium rounded-full px-3 py-1.5 transition-colors ${
+          somAtivo ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+        }`}
+      >
+        <span aria-hidden>{somAtivo ? '🔔' : '🔕'}</span>
+        {somAtivo ? 'Som ativado' : 'Ativar som'}
+      </button>
+    </div>
+  )
+
   if (ativos.length === 0 && cancelados.length === 0) {
-    return <p className="text-gray-400 text-sm text-center mt-8">Nenhum pedido ainda.</p>
+    return (
+      <div className="flex flex-col gap-4">
+        {botaoSom}
+        <p className="text-gray-400 text-sm text-center mt-8">Nenhum pedido ainda.</p>
+      </div>
+    )
   }
 
   return (
     <div className="flex flex-col gap-6">
+      {botaoSom}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
         {COLUNAS.map((coluna) => {
           const doColuna = ativos.filter((p) => p.status === coluna)
