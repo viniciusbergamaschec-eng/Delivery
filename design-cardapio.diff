@@ -1,0 +1,292 @@
+diff --git a/src/app/globals.css b/src/app/globals.css
+index 2a89a48..5c2203d 100644
+--- a/src/app/globals.css
++++ b/src/app/globals.css
+@@ -17,3 +17,33 @@ body {
+   color: var(--foreground);
+   font-family: Arial, Helvetica, sans-serif;
+ }
++
++@keyframes fade-in-up {
++  from {
++    opacity: 0;
++    transform: translateY(14px);
++  }
++  to {
++    opacity: 1;
++    transform: translateY(0);
++  }
++}
++
++.animate-fade-in-up {
++  animation: fade-in-up 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
++}
++
++@media (prefers-reduced-motion: reduce) {
++  .animate-fade-in-up {
++    animation: none;
++  }
++}
++
++.scrollbar-hide {
++  scrollbar-width: none;
++  -ms-overflow-style: none;
++}
++
++.scrollbar-hide::-webkit-scrollbar {
++  display: none;
++}
+diff --git a/src/app/loja/[slug]/card-produto.tsx b/src/app/loja/[slug]/card-produto.tsx
+index 9d14075..0e8af4a 100644
+--- a/src/app/loja/[slug]/card-produto.tsx
++++ b/src/app/loja/[slug]/card-produto.tsx
+@@ -16,27 +16,34 @@ function formatarPreco(preco: number) {
+ export default function CardProduto({
+   produto,
+   corPrimaria,
++  atraso = 0,
+ }: {
+   produto: Produto
+   corPrimaria: string
++  atraso?: number
+ }) {
+   const { itens, adicionar, alterarQuantidade } = useCarrinho()
+   const itemNoCarrinho = itens.find((i) => i.id === produto.id)
+   const quantidade = itemNoCarrinho?.quantidade ?? 0
+ 
+   return (
+-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-center gap-3 hover:shadow-md transition-shadow">
++    <div
++      className="animate-fade-in-up group bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3.5 transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 hover:border-transparent"
++      style={{ animationDelay: `${atraso}ms`, boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
++    >
+       <div
+-        className="w-16 h-16 rounded-xl shrink-0 flex items-center justify-center text-2xl"
+-        style={{ backgroundColor: `${corPrimaria}1a` }}
++        className="w-16 h-16 rounded-2xl shrink-0 flex items-center justify-center text-2xl transition-transform duration-300 group-hover:scale-105"
++        style={{
++          background: `linear-gradient(145deg, ${corPrimaria}22, ${corPrimaria}0d)`,
++        }}
+       >
+         🍽️
+       </div>
+ 
+       <div className="flex-1 min-w-0">
+-        <p className="font-semibold truncate">{produto.nome}</p>
++        <p className="font-semibold text-[15px] text-gray-900 truncate">{produto.nome}</p>
+         {produto.descricao && (
+-          <p className="text-sm text-gray-500 mt-0.5 line-clamp-2">{produto.descricao}</p>
++          <p className="text-sm text-gray-400 mt-0.5 line-clamp-2 leading-snug">{produto.descricao}</p>
+         )}
+         <p className="text-sm font-bold mt-1.5" style={{ color: corPrimaria }}>
+           {formatarPreco(produto.preco)}
+@@ -47,25 +54,25 @@ export default function CardProduto({
+         <button
+           onClick={() => adicionar(produto)}
+           style={{ backgroundColor: corPrimaria }}
+-          className="shrink-0 text-white rounded-xl w-10 h-10 text-xl font-bold active:scale-90 transition-transform"
++          className="shrink-0 text-white rounded-full w-10 h-10 text-xl font-bold active:scale-90 transition-transform duration-150 shadow-sm hover:shadow-md flex items-center justify-center"
+         >
+           +
+         </button>
+       ) : (
+         <div
+           style={{ backgroundColor: corPrimaria }}
+-          className="shrink-0 flex items-center gap-2 rounded-xl px-1.5 py-1"
++          className="shrink-0 flex items-center gap-2.5 rounded-full px-2 py-1.5 shadow-sm animate-fade-in-up"
+         >
+           <button
+             onClick={() => alterarQuantidade(produto.id, quantidade - 1)}
+-            className="text-white w-7 h-7 font-bold active:scale-90 transition-transform"
++            className="text-white w-6 h-6 font-bold active:scale-90 transition-transform duration-150 flex items-center justify-center"
+           >
+-            -
++            −
+           </button>
+-          <span className="text-white font-semibold w-4 text-center">{quantidade}</span>
++          <span className="text-white font-semibold w-4 text-center text-sm tabular-nums">{quantidade}</span>
+           <button
+             onClick={() => adicionar(produto)}
+-            className="text-white w-7 h-7 font-bold active:scale-90 transition-transform"
++            className="text-white w-6 h-6 font-bold active:scale-90 transition-transform duration-150 flex items-center justify-center"
+           >
+             +
+           </button>
+diff --git a/src/app/loja/[slug]/categoria-nav.tsx b/src/app/loja/[slug]/categoria-nav.tsx
+new file mode 100644
+index 0000000..2a4cde2
+--- /dev/null
++++ b/src/app/loja/[slug]/categoria-nav.tsx
+@@ -0,0 +1,59 @@
++'use client'
++
++import { useEffect, useState } from 'react'
++
++type Categoria = { id: string; nome: string }
++
++export default function CategoriaNav({
++  categorias,
++  corPrimaria,
++}: {
++  categorias: Categoria[]
++  corPrimaria: string
++}) {
++  const [ativa, setAtiva] = useState(categorias[0]?.id ?? '')
++
++  useEffect(() => {
++    const observador = new IntersectionObserver(
++      (entradas) => {
++        entradas.forEach((entrada) => {
++          if (entrada.isIntersecting) {
++            setAtiva(entrada.target.id.replace('cat-', ''))
++          }
++        })
++      },
++      { rootMargin: '-35% 0px -55% 0px', threshold: 0 }
++    )
++
++    categorias.forEach((cat) => {
++      const el = document.getElementById(`cat-${cat.id}`)
++      if (el) observador.observe(el)
++    })
++
++    return () => observador.disconnect()
++  }, [categorias])
++
++  return (
++    <div className="sticky top-0 z-10 bg-gray-50/90 backdrop-blur-md border-b border-gray-100">
++      <div className="max-w-2xl mx-auto px-4 py-3 flex gap-2 overflow-x-auto scrollbar-hide">
++        {categorias.map((categoria) => {
++          const estaAtiva = ativa === categoria.id
++          return (
++            <a
++              key={categoria.id}
++              href={`#cat-${categoria.id}`}
++              className="shrink-0 text-sm font-medium px-4 py-2 rounded-full border whitespace-nowrap transition-all duration-300"
++              style={
++                estaAtiva
++                  ? { backgroundColor: corPrimaria, borderColor: corPrimaria, color: '#fff' }
++                  : { borderColor: '#e5e7eb', color: '#6b7280' }
++              }
++            >
++              {categoria.nome}
++            </a>
++          )
++        })}
++      </div>
++    </div>
++  )
++}
+diff --git a/src/app/loja/[slug]/page.tsx b/src/app/loja/[slug]/page.tsx
+index e725f62..c253f88 100644
+--- a/src/app/loja/[slug]/page.tsx
++++ b/src/app/loja/[slug]/page.tsx
+@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
+ import { notFound } from 'next/navigation'
+ import { CarrinhoProvider } from './carrinho-context'
+ import CardProduto from './card-produto'
++import CategoriaNav from './categoria-nav'
+ import BarraCarrinho from './barra-carrinho'
+ 
+ export default async function CardapioPublico({
+@@ -40,47 +41,64 @@ export default async function CardapioPublico({
+   }))
+   const grupoComItens = grupos.filter((g) => g.itens.length > 0)
+ 
++  // Índice global de cada produto, só pra escalonar a animação de entrada
++  // dos cards (cada um aparece um pouquinho depois do anterior).
++  let indiceGlobal = 0
++
+   return (
+     <CarrinhoProvider>
+       <main className="min-h-screen bg-gray-50 pb-32">
+         <header
+-          style={{ background: `linear-gradient(160deg, ${cor}, ${cor}cc)` }}
+-          className="text-white px-6 pt-10 pb-10 rounded-b-[2rem] shadow-lg"
++          className="relative overflow-hidden text-white px-6 pt-12 pb-12 rounded-b-[2.5rem] shadow-xl"
++          style={{ background: `linear-gradient(155deg, ${cor}, ${cor}b3 65%, ${cor}80)` }}
+         >
+-          <h1 className="text-3xl font-extrabold tracking-tight">{loja.nome}</h1>
+-          <div className="flex flex-col gap-0.5 mt-2 text-white/90 text-sm">
+-            {loja.endereco && <p>📍 {loja.endereco}</p>}
+-            {loja.horario_funcionamento && <p>🕒 {loja.horario_funcionamento}</p>}
++          <div
++            className="pointer-events-none absolute -top-16 -right-16 w-56 h-56 rounded-full blur-3xl opacity-40"
++            style={{ backgroundColor: '#ffffff' }}
++          />
++          <div
++            className="pointer-events-none absolute -bottom-24 -left-10 w-64 h-64 rounded-full blur-3xl opacity-20"
++            style={{ backgroundColor: '#000000' }}
++          />
++
++          <div className="relative">
++            <span className="inline-block text-[11px] font-semibold tracking-wide uppercase bg-white/15 backdrop-blur-sm rounded-full px-3 py-1 mb-3">
++              Cardápio digital
++            </span>
++            <h1 className="text-3xl font-extrabold tracking-tight leading-tight">{loja.nome}</h1>
++
++            <div className="flex flex-wrap gap-2 mt-4">
++              {loja.endereco && (
++                <span className="text-xs font-medium bg-white/15 backdrop-blur-sm rounded-full px-3 py-1.5 flex items-center gap-1.5">
++                  📍 {loja.endereco}
++                </span>
++              )}
++              {loja.horario_funcionamento && (
++                <span className="text-xs font-medium bg-white/15 backdrop-blur-sm rounded-full px-3 py-1.5 flex items-center gap-1.5">
++                  🕒 {loja.horario_funcionamento}
++                </span>
++              )}
++            </div>
+           </div>
+         </header>
+ 
+         {grupoComItens.length > 1 && (
+-          <div className="sticky top-0 z-10 bg-gray-50/95 backdrop-blur-sm border-b border-gray-100">
+-            <div className="max-w-2xl mx-auto px-4 py-3 flex gap-2 overflow-x-auto">
+-              {grupoComItens.map(({ categoria }) => (
+-                <a
+-                  key={categoria.id}
+-                  href={`#cat-${categoria.id}`}
+-                  className="shrink-0 text-sm font-medium px-4 py-2 rounded-full border whitespace-nowrap"
+-                  style={{ borderColor: cor, color: cor }}
+-                >
+-                  {categoria.nome}
+-                </a>
+-              ))}
+-            </div>
+-          </div>
++          <CategoriaNav
++            categorias={grupoComItens.map((g) => g.categoria)}
++            corPrimaria={cor}
++          />
+         )}
+ 
+-        <div className="max-w-2xl mx-auto p-4 -mt-2 flex flex-col gap-7">
++        <div className="max-w-2xl mx-auto p-4 -mt-2 flex flex-col gap-8">
+           {grupoComItens.map(({ categoria, itens }) => (
+             <section key={categoria.id} id={`cat-${categoria.id}`} className="scroll-mt-20">
+-              <h2 className="text-lg font-bold mb-3 flex items-center gap-2">
++              <h2 className="text-lg font-bold mb-3 flex items-center gap-2 text-gray-900">
+                 <span style={{ backgroundColor: cor }} className="w-1.5 h-5 rounded-full inline-block" />
+                 {categoria.nome}
+               </h2>
+               <div className="flex flex-col gap-3">
+                 {itens.map((p) => (
+-                  <CardProduto key={p.id} produto={p} corPrimaria={cor} />
++                  <CardProduto key={p.id} produto={p} corPrimaria={cor} atraso={(indiceGlobal++ % 8) * 40} />
+                 ))}
+               </div>
+             </section>
+@@ -88,10 +106,10 @@ export default async function CardapioPublico({
+ 
+           {semCategoria.length > 0 && (
+             <section>
+-              <h2 className="text-lg font-bold mb-3">Outros</h2>
++              <h2 className="text-lg font-bold mb-3 text-gray-900">Outros</h2>
+               <div className="flex flex-col gap-3">
+                 {semCategoria.map((p) => (
+-                  <CardProduto key={p.id} produto={p} corPrimaria={cor} />
++                  <CardProduto key={p.id} produto={p} corPrimaria={cor} atraso={(indiceGlobal++ % 8) * 40} />
+                 ))}
+               </div>
+             </section>
