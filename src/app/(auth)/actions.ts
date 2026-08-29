@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { checarLimite, obterIp } from '@/lib/rate-limit'
 
 function gerarSlug(nome: string) {
   return nome
@@ -14,6 +15,12 @@ function gerarSlug(nome: string) {
 }
 
 export async function cadastrarLoja(_prevState: unknown, formData: FormData) {
+  const ip = await obterIp()
+  const limite = checarLimite(`cadastro:${ip}`, { maximo: 3, janelaMs: 60 * 60_000 })
+  if (!limite.permitido) {
+    return { erro: 'Muitas tentativas de cadastro. Aguarde um pouco e tente novamente.' }
+  }
+
   const email = String(formData.get('email'))
   const senha = String(formData.get('senha'))
   const nomeLoja = String(formData.get('nomeLoja'))
@@ -58,6 +65,12 @@ export async function cadastrarLoja(_prevState: unknown, formData: FormData) {
 }
 
 export async function entrar(_prevState: unknown, formData: FormData) {
+  const ip = await obterIp()
+  const limite = checarLimite(`login:${ip}`, { maximo: 10, janelaMs: 5 * 60_000 })
+  if (!limite.permitido) {
+    return { erro: 'Muitas tentativas de login. Aguarde alguns minutos e tente novamente.' }
+  }
+
   const email = String(formData.get('email'))
   const senha = String(formData.get('senha'))
 

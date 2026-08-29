@@ -109,21 +109,19 @@ export default function BarraCarrinho({
       clienteTelefone: telefone,
       tipoEntrega,
       endereco: tipoEntrega === 'entrega' ? endereco : undefined,
-      total: totalComTaxa,
-      taxaEntrega,
-      regiaoEntrega: regiaoSelecionada?.nome,
+      regiaoId: tipoEntrega === 'entrega' ? regiaoId || undefined : undefined,
       formaPagamento,
-      itens: itens.map((i) => ({ nome: i.nome, preco: i.preco, quantidade: i.quantidade })),
+      itens: itens.map((i) => ({ produtoId: i.id, quantidade: i.quantidade })),
     })
     setEnviando(false)
 
     if (resultado.erro) {
-      setErro('Não foi possível registrar o pedido. Tente novamente.')
+      setErro(resultado.erro)
       return
     }
 
     if (typeof window.fbq === 'function') {
-      window.fbq('track', 'Lead', { value: totalComTaxa, currency: 'BRL' })
+      window.fbq('track', 'Lead', { value: resultado.total, currency: 'BRL' })
     }
 
     const linkPedido = resultado.pedidoId

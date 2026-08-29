@@ -15,7 +15,7 @@ export default async function CardapioPublico({
   const supabase = await createClient()
 
   const { data: loja } = await supabase
-    .from('lojas')
+    .from('lojas_publicas')
     .select('id, nome, whatsapp, endereco, horario_funcionamento, cor_primaria, logo_url, pixel_meta_id')
     .eq('slug', slug)
     .single()
