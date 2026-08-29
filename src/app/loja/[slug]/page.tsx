@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
+import Script from 'next/script'
 import { CarrinhoProvider } from './carrinho-context'
 import CardProduto from './card-produto'
 import CategoriaNav from './categoria-nav'
@@ -15,7 +16,7 @@ export default async function CardapioPublico({
 
   const { data: loja } = await supabase
     .from('lojas')
-    .select('id, nome, whatsapp, endereco, horario_funcionamento, cor_primaria')
+    .select('id, nome, whatsapp, endereco, horario_funcionamento, cor_primaria, logo_url, pixel_meta_id')
     .eq('slug', slug)
     .single()
 
@@ -47,6 +48,22 @@ export default async function CardapioPublico({
 
   return (
     <CarrinhoProvider>
+      {loja.pixel_meta_id && (
+        <Script id="fb-pixel" strategy="afterInteractive">
+          {`
+            !function(f,b,e,v,n,t,s)
+            {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+            n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+            if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+            n.queue=[];t=b.createElement(e);t.async=!0;
+            t.src=v;s=b.getElementsByTagName(e)[0];
+            s.parentNode.insertBefore(t,s)}(window, document,'script',
+            'https://connect.facebook.net/en_US/fbevents.js');
+            fbq('init', '${loja.pixel_meta_id}');
+            fbq('track', 'PageView');
+          `}
+        </Script>
+      )}
       <main className="min-h-screen bg-gray-50 pb-32">
         <header
           className="relative overflow-hidden text-white px-6 pt-12 pb-12 rounded-b-[2.5rem] shadow-xl"
@@ -65,7 +82,17 @@ export default async function CardapioPublico({
             <span className="inline-block text-[11px] font-semibold tracking-wide uppercase bg-white/15 backdrop-blur-sm rounded-full px-3 py-1 mb-3">
               Cardápio digital
             </span>
-            <h1 className="text-3xl font-extrabold tracking-tight leading-tight">{loja.nome}</h1>
+            <div className="flex items-center gap-3">
+              {loja.logo_url && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={loja.logo_url}
+                  alt={loja.nome}
+                  className="w-12 h-12 rounded-full object-cover border-2 border-white/40 shrink-0"
+                />
+              )}
+              <h1 className="text-3xl font-extrabold tracking-tight leading-tight">{loja.nome}</h1>
+            </div>
 
             <div className="flex flex-wrap gap-2 mt-4">
               {loja.endereco && (

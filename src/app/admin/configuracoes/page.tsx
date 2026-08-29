@@ -17,7 +17,9 @@ export default async function ConfiguracoesPage() {
 
   const { data: loja } = await supabase
     .from('lojas')
-    .select('*')
+    .select(
+      'nome, whatsapp, endereco, horario_funcionamento, cor_primaria, slug, pixel_meta_id, logo_url, aceitacao_automatica'
+    )
     .eq('id', lojista.loja_id)
     .single()
 
