@@ -147,6 +147,12 @@ export default async function CardapioPublico({
               Essa loja ainda não cadastrou produtos.
             </p>
           )}
+
+          <footer className="text-center text-[11px] text-gray-300 mt-10 pb-4">
+            <a href="/privacidade" className="underline">Privacidade</a>
+            {' · '}
+            <a href="/termos" className="underline">Termos de uso</a>
+          </footer>
         </div>
 
         <BarraCarrinho

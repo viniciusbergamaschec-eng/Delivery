@@ -42,6 +42,12 @@ export default function CadastroPage() {
           </button>
         </form>
 
+        <p className="text-xs text-gray-400 mt-4 text-center">
+          Ao criar sua loja, você concorda com os{' '}
+          <a href="/termos" target="_blank" className="underline">Termos de Uso</a> e a{' '}
+          <a href="/privacidade" target="_blank" className="underline">Política de Privacidade</a>.
+        </p>
+
         <p className="text-sm text-gray-500 mt-4 text-center">
           Já tem loja? <a href="/entrar" className="underline">Entrar</a>
         </p>

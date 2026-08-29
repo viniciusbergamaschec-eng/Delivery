@@ -295,6 +295,11 @@ export default function BarraCarrinho({
 
               {erro && <p className="text-red-600 text-sm">{erro}</p>}
 
+              <p className="text-[11px] text-gray-400 text-center -mb-1">
+                Seus dados são usados apenas para processar este pedido.{' '}
+                <a href="/privacidade" target="_blank" className="underline">Saiba mais</a>
+              </p>
+
               <button
                 onClick={enviarPedido}
                 disabled={itens.length === 0 || enviando}
