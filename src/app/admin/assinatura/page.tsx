@@ -2,7 +2,12 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import PainelAssinatura from './painel-assinatura'
 
-export default async function AssinaturaPage() {
+export default async function AssinaturaPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ bloqueado?: string }>
+}) {
+  const { bloqueado } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/entrar')
@@ -28,6 +33,12 @@ export default async function AssinaturaPage() {
         <p className="text-gray-500 text-sm mb-6">
           Mantenha sua loja ativa no cardápio digital.
         </p>
+        {bloqueado && (
+          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3 mb-4">
+            Seu período de teste acabou ou sua assinatura está pendente. Regularize para
+            voltar a acessar o painel.
+          </div>
+        )}
         <PainelAssinatura loja={loja} />
       </div>
     </main>

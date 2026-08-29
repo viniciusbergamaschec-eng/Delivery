@@ -1,7 +1,21 @@
 'use client'
 
-import { useActionState } from 'react'
+import { Suspense, useActionState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { entrar } from '../actions'
+
+function AvisoConfirmarEmail() {
+  const searchParams = useSearchParams()
+  const confirmarEmail = searchParams.get('confirmar_email') === '1'
+
+  if (!confirmarEmail) return null
+
+  return (
+    <p className="bg-blue-50 text-blue-700 text-sm p-3 rounded-lg mb-4">
+      Loja criada! Confirme seu e-mail antes de entrar (verifique também a caixa de spam).
+    </p>
+  )
+}
 
 export default function EntrarPage() {
   const [state, formAction, pending] = useActionState(entrar, null)
@@ -10,6 +24,10 @@ export default function EntrarPage() {
     <main className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-md bg-white p-8 rounded-xl shadow">
         <h1 className="text-2xl font-bold mb-6">Entrar na sua loja</h1>
+
+        <Suspense fallback={null}>
+          <AvisoConfirmarEmail />
+        </Suspense>
 
         {state?.erro && (
           <p className="bg-red-50 text-red-600 text-sm p-3 rounded-lg mb-4">{state.erro}</p>

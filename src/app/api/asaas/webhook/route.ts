@@ -13,7 +13,13 @@ export async function POST(req: Request) {
   const tokenEsperado = process.env.ASAAS_WEBHOOK_TOKEN
   const tokenRecebido = req.headers.get('asaas-access-token')
 
-  if (tokenEsperado && tokenRecebido !== tokenEsperado) {
+  // Fail-closed: se a env var não estiver configurada, rejeita tudo em vez
+  // de pular a validação. Um webhook sem token de verificação aceitaria
+  // requisição forjada de qualquer um marcando qualquer loja como "ativa".
+  if (!tokenEsperado) {
+    return NextResponse.json({ error: 'Webhook não configurado corretamente' }, { status: 500 })
+  }
+  if (tokenRecebido !== tokenEsperado) {
     return NextResponse.json({ error: 'Token inválido' }, { status: 401 })
   }
 
@@ -33,6 +39,13 @@ export async function POST(req: Request) {
     novoStatus = 'ativa'
   } else if (evento === 'PAYMENT_OVERDUE') {
     novoStatus = 'inadimplente'
+  } else if (
+    evento === 'PAYMENT_DELETED' ||
+    evento === 'PAYMENT_REFUNDED' ||
+    evento === 'SUBSCRIPTION_DELETED' ||
+    evento === 'SUBSCRIPTION_INACTIVATED'
+  ) {
+    novoStatus = 'cancelada'
   }
 
   if (novoStatus) {

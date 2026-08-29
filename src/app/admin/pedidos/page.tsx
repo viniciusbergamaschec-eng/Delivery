@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { exigirAssinaturaAtiva } from '@/lib/auth-admin'
 import ListaPedidos from './lista-pedidos'
 import FiltroData from '../dashboard/filtro-data'
 
@@ -39,6 +40,8 @@ export default async function PedidosPage({
 }) {
   const params = await searchParams
   const periodo = (params.periodo as Periodo) ?? 'todos'
+
+  await exigirAssinaturaAtiva()
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

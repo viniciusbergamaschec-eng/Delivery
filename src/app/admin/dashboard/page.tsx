@@ -1,5 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
+import { exigirAssinaturaAtiva } from '@/lib/auth-admin'
 import FiltroData from './filtro-data'
 
 type Periodo = 'hoje' | 'semana' | 'mes' | 'personalizado'
@@ -42,17 +41,7 @@ export default async function DashboardPage({
   const params = await searchParams
   const periodo = (params.periodo as Periodo) ?? 'hoje'
 
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/entrar')
-
-  const { data: lojista } = await supabase
-    .from('lojistas')
-    .select('loja_id')
-    .eq('id', user.id)
-    .single()
-
-  if (!lojista) redirect('/entrar')
+  const { supabase, lojista } = await exigirAssinaturaAtiva()
 
   const { inicio, fim } = calcularIntervalo(periodo, params.de, params.ate)
 
