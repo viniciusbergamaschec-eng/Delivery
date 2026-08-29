@@ -4,6 +4,12 @@ import { useState } from 'react'
 import { useCarrinho } from './carrinho-context'
 import { salvarPedido } from './actions'
 
+declare global {
+  interface Window {
+    fbq?: (...args: unknown[]) => void
+  }
+}
+
 function formatarPreco(preco: number) {
   return preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
@@ -114,6 +120,10 @@ export default function BarraCarrinho({
     if (resultado.erro) {
       setErro('Não foi possível registrar o pedido. Tente novamente.')
       return
+    }
+
+    if (typeof window.fbq === 'function') {
+      window.fbq('track', 'Lead', { value: totalComTaxa, currency: 'BRL' })
     }
 
     const linkPedido = resultado.pedidoId
