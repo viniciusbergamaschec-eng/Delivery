@@ -11,7 +11,7 @@ export default function PoliticaPrivacidade() {
 
         <p>
           Esta plataforma (&quot;Delivery&quot; ou &quot;nós&quot;) é operada por{' '}
-          <strong>[RAZÃO SOCIAL — CNPJ 55.290.097/0001-06 — PREENCHER ANTES DE PUBLICAR]</strong>.
+          <strong>VINICIUS BERGAMASCHE COSTA — CNPJ 55.290.097/0001-06</strong>.
           Esta política explica quais dados coletamos, para quê, e quais são os direitos
           de quem usa a plataforma, em conformidade com a Lei Geral de Proteção de Dados
           (Lei nº 13.709/2018 — LGPD).

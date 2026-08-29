@@ -11,7 +11,7 @@ export default function TermosDeUso() {
 
         <p>
           Estes Termos regulam o uso da plataforma Delivery, operada por{' '}
-          <strong>[RAZÃO SOCIAL — CNPJ 55.290.097/0001-06 — PREENCHER ANTES DE PUBLICAR]</strong>{' '}
+          <strong>VINICIUS BERGAMASCHE COSTA — CNPJ 55.290.097/0001-06</strong>{' '}
           (&quot;nós&quot;). Ao criar uma conta de lojista ou fazer um pedido pelo cardápio de uma
           loja cadastrada, você concorda com estes Termos.
         </p>
