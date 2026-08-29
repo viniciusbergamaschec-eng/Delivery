@@ -33,13 +33,19 @@ export async function cadastrarLoja(_prevState: unknown, formData: FormData) {
   const senha = String(formData.get('senha'))
   const nomeLoja = String(formData.get('nomeLoja')).trim()
   const nomeLojista = String(formData.get('nomeLojista')).trim()
-  const whatsapp = String(formData.get('whatsapp')).trim()
+  const whatsapp = String(formData.get('whatsapp')).replace(/\D/g, '')
 
   if (!email || !senha || !nomeLoja || !nomeLojista || !whatsapp) {
     return { erro: 'Preencha todos os campos.' }
   }
   if (senha.length < 6) {
     return { erro: 'A senha precisa ter pelo menos 6 caracteres.' }
+  }
+  // DDD (2 dígitos) + número (8 ou 9 dígitos) = 10 ou 11 dígitos.
+  // Sem essa checagem, um número mal digitado só quebra depois, quando o
+  // cliente final tenta abrir o link do WhatsApp no cardápio público.
+  if (whatsapp.length < 10 || whatsapp.length > 11) {
+    return { erro: 'WhatsApp inválido. Informe o DDD + número (ex: 44999999999).' }
   }
 
   const supabase = await createClient()
@@ -55,7 +61,14 @@ export async function cadastrarLoja(_prevState: unknown, formData: FormData) {
   })
 
   if (authError || !authData.user) {
-    return { erro: authError?.message ?? 'Erro ao criar usuário' }
+    const mensagem = authError?.message ?? ''
+    if (mensagem.toLowerCase().includes('already registered')) {
+      return { erro: 'Esse e-mail já tem uma conta. Tente entrar em vez de cadastrar.' }
+    }
+    if (mensagem.toLowerCase().includes('password')) {
+      return { erro: 'Senha inválida. Use pelo menos 6 caracteres.' }
+    }
+    return { erro: mensagem || 'Erro ao criar usuário. Tente novamente.' }
   }
 
   const admin = adminClient()
