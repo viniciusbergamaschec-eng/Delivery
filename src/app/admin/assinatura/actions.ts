@@ -1,8 +1,16 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { asaasCriarCliente, asaasCriarAssinatura, asaasBuscarCobrancasDaAssinatura } from '@/lib/asaas'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { asaasCriarCliente, asaasCriarAssinatura, asaasBuscarCobrancasDaAssinatura, asaasCancelarAssinatura } from '@/lib/asaas'
 import { revalidatePath } from 'next/cache'
+
+function adminClient() {
+  return createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}
 
 async function getLojaELojista() {
   const supabase = await createClient()
@@ -88,4 +96,30 @@ export async function buscarLinkPagamento() {
   } catch (e) {
     return { erro: e instanceof Error ? e.message : 'Erro ao buscar cobrança' }
   }
+}
+
+export async function cancelarAssinatura() {
+  const { loja } = await getLojaELojista()
+  const admin = adminClient()
+
+  if (!loja.asaas_subscription_id) {
+    // Sem assinatura no Asaas (ex: ainda em trial) — só marca localmente.
+    await admin.from('lojas').update({ status_assinatura: 'cancelada' }).eq('id', loja.id)
+    revalidatePath('/admin/assinatura')
+    return { sucesso: true }
+  }
+
+  try {
+    await asaasCancelarAssinatura(loja.asaas_subscription_id)
+  } catch (e) {
+    return { erro: e instanceof Error ? e.message : 'Erro ao cancelar no Asaas' }
+  }
+
+  // Atualiza localmente na hora, sem esperar o webhook — o webhook ainda vai
+  // confirmar depois (SUBSCRIPTION_DELETED), mas o lojista não deveria
+  // esperar isso pra ver a mudança refletida no próprio painel.
+  await admin.from('lojas').update({ status_assinatura: 'cancelada' }).eq('id', loja.id)
+
+  revalidatePath('/admin/assinatura')
+  return { sucesso: true }
 }

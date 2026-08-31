@@ -58,3 +58,13 @@ export async function asaasBuscarCobrancasDaAssinatura(subscriptionId: string) {
   if (!res.ok) throw new Error(json.errors?.[0]?.description ?? 'Erro ao buscar cobranças')
   return json as { data: Array<{ id: string; status: string; invoiceUrl: string }> }
 }
+
+export async function asaasCancelarAssinatura(subscriptionId: string) {
+  const res = await fetch(`${ASAAS_BASE_URL}/subscriptions/${subscriptionId}`, {
+    method: 'DELETE',
+    headers: headers(),
+  })
+  const json = await res.json()
+  if (!res.ok) throw new Error(json.errors?.[0]?.description ?? 'Erro ao cancelar assinatura no Asaas')
+  return json as { deleted: boolean }
+}

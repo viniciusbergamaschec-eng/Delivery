@@ -41,6 +41,9 @@ export default function EntrarPage() {
           <div>
             <label className="text-sm font-medium">Senha</label>
             <input type="password" name="senha" required className="w-full border rounded-lg px-3 py-2 mt-1" />
+            <a href="/recuperar-senha" className="text-xs text-gray-500 underline mt-1 inline-block">
+              Esqueci minha senha
+            </a>
           </div>
           <button type="submit" disabled={pending} className="bg-black text-white rounded-lg py-2 mt-2 font-medium disabled:opacity-50">
             {pending ? 'Entrando...' : 'Entrar'}

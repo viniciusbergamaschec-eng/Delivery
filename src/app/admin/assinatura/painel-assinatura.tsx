@@ -1,7 +1,7 @@
 'use client'
 
 import { useActionState, useState } from 'react'
-import { iniciarAssinatura, buscarLinkPagamento } from './actions'
+import { iniciarAssinatura, buscarLinkPagamento, cancelarAssinatura } from './actions'
 
 type Loja = {
   status_assinatura: string
@@ -31,6 +31,22 @@ export default function PainelAssinatura({ loja }: { loja: Loja }) {
   const [state, formAction, pending] = useActionState(iniciarAssinatura, null)
   const [buscando, setBuscando] = useState(false)
   const [erroLink, setErroLink] = useState('')
+  const [confirmandoCancelamento, setConfirmandoCancelamento] = useState(false)
+  const [cancelando, setCancelando] = useState(false)
+  const [erroCancelamento, setErroCancelamento] = useState('')
+
+  async function confirmarCancelamento() {
+    setCancelando(true)
+    setErroCancelamento('')
+    const resultado = await cancelarAssinatura()
+    setCancelando(false)
+    if (resultado.erro) {
+      setErroCancelamento(resultado.erro)
+      return
+    }
+    setConfirmandoCancelamento(false)
+    window.location.reload()
+  }
 
   async function abrirPagamento() {
     setBuscando(true)
@@ -91,6 +107,45 @@ export default function PainelAssinatura({ loja }: { loja: Loja }) {
           >
             {buscando ? 'Buscando...' : 'Ver / pagar cobrança atual'}
           </button>
+        </div>
+      )}
+
+      {loja.status_assinatura !== 'cancelada' && (
+        <div className="mt-6 pt-4 border-t border-gray-100">
+          {!confirmandoCancelamento ? (
+            <button
+              onClick={() => setConfirmandoCancelamento(true)}
+              className="text-sm text-red-600 underline"
+            >
+              Cancelar assinatura
+            </button>
+          ) : (
+            <div className="bg-red-50 rounded-lg p-4">
+              <p className="text-sm text-red-700 font-medium mb-1">Tem certeza?</p>
+              <p className="text-sm text-red-600 mb-3">
+                Isso cancela sua assinatura no Asaas e bloqueia o acesso ao painel imediatamente.
+                Essa ação não pode ser desfeita por aqui — para reativar, será preciso assinar
+                novamente.
+              </p>
+              {erroCancelamento && <p className="text-red-700 text-sm mb-2">{erroCancelamento}</p>}
+              <div className="flex gap-2">
+                <button
+                  onClick={confirmarCancelamento}
+                  disabled={cancelando}
+                  className="bg-red-600 text-white rounded-lg py-2 px-4 text-sm font-medium disabled:opacity-50"
+                >
+                  {cancelando ? 'Cancelando...' : 'Sim, cancelar'}
+                </button>
+                <button
+                  onClick={() => setConfirmandoCancelamento(false)}
+                  disabled={cancelando}
+                  className="text-sm text-gray-500 px-4"
+                >
+                  Voltar
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
