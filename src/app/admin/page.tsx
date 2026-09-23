@@ -1,5 +1,54 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
+import LinkCardapio from './link-cardapio'
+
+const STATUS_LABEL: Record<string, string> = {
+  ativa: 'Assinatura ativa',
+  trial: 'Período de teste',
+  inadimplente: 'Pagamento pendente',
+  cancelada: 'Assinatura cancelada',
+}
+
+const STATUS_COR: Record<string, string> = {
+  ativa: 'bg-green-100 text-green-700',
+  trial: 'bg-blue-100 text-blue-700',
+  inadimplente: 'bg-red-100 text-red-700',
+  cancelada: 'bg-gray-200 text-gray-600',
+}
+
+const ACOES = [
+  {
+    href: '/admin/pedidos',
+    titulo: 'Pedidos',
+    descricao: 'Acompanhe e atualize o status dos pedidos recebidos',
+  },
+  {
+    href: '/admin/dashboard',
+    titulo: 'Dashboard',
+    descricao: 'Vendas, faturamento e desempenho da loja',
+  },
+  {
+    href: '/admin/produtos',
+    titulo: 'Produtos e cardápio',
+    descricao: 'Adicione, edite ou remova itens do cardápio',
+  },
+  {
+    href: '/admin/entrega',
+    titulo: 'Regiões de entrega',
+    descricao: 'Defina áreas e taxas de entrega',
+  },
+  {
+    href: '/admin/configuracoes',
+    titulo: 'Configurações da loja',
+    descricao: 'Nome, WhatsApp, logo, cor e Pixel do Meta',
+  },
+  {
+    href: '/admin/assinatura',
+    titulo: 'Assinatura',
+    descricao: 'Plano, cobrança e status de pagamento',
+  },
+]
 
 export default async function AdminPage() {
   const supabase = await createClient()
@@ -19,24 +68,38 @@ export default async function AdminPage() {
     | { nome: string; slug: string; status_assinatura: string; trial_expira_em: string | null }
     | null
 
+  if (!loja) redirect('/entrar')
+
   const trialValido =
-    loja?.status_assinatura === 'trial' &&
+    loja.status_assinatura === 'trial' &&
     loja.trial_expira_em &&
     new Date(loja.trial_expira_em) > new Date()
-  const assinaturaEmDia = loja?.status_assinatura === 'ativa' || trialValido
+  const assinaturaEmDia = loja.status_assinatura === 'ativa' || trialValido
+
+  const h = await headers()
+  const host = h.get('host')
+  const proto = h.get('x-forwarded-proto') ?? 'https'
+  const cardapioUrl = `${proto}://${host}/loja/${loja.slug}`
 
   return (
-    <main className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-2xl mx-auto bg-white p-8 rounded-xl shadow">
-        <h1 className="text-2xl font-bold mb-2">Painel da loja</h1>
-        <p className="text-gray-600">Bem-vindo, {lojista?.nome ?? user.email}.</p>
+    <main className="min-h-screen bg-gray-50">
+      <div className="max-w-3xl mx-auto px-4 py-8 md:py-12">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <p className="text-sm text-gray-400">Painel da loja</p>
+            <h1 className="text-2xl font-bold text-gray-900">{loja.nome}</h1>
+          </div>
+          <span className={`text-xs font-medium px-3 py-1.5 rounded-full ${STATUS_COR[loja.status_assinatura] ?? 'bg-gray-100 text-gray-600'}`}>
+            {STATUS_LABEL[loja.status_assinatura] ?? loja.status_assinatura}
+          </span>
+        </div>
 
         {!assinaturaEmDia && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-4 mt-4">
+          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl p-4 mb-6">
             <p className="font-medium">Sua assinatura não está ativa.</p>
             <p className="mt-1">
-              O acesso ao cardápio, pedidos e configurações fica bloqueado até a assinatura
-              ser regularizada.{' '}
+              O acesso ao cardápio, pedidos e configurações fica bloqueado até a assinatura ser
+              regularizada.{' '}
               <a href="/admin/assinatura" className="underline font-medium">
                 Regularizar agora
               </a>
@@ -44,46 +107,25 @@ export default async function AdminPage() {
           </div>
         )}
 
-        <pre className="bg-gray-100 p-4 rounded-lg mt-4 text-sm overflow-auto">
-          {JSON.stringify(lojista, null, 2)}
-        </pre>
-        <div className="flex gap-3 mt-4 flex-wrap">
-          <a
-            href="/admin/pedidos"
-            className="inline-block bg-green-600 text-white rounded-lg px-4 py-2 text-sm font-medium"
-          >
-            Ver pedidos
-          </a>
-          <a
-            href="/admin/dashboard"
-            className="inline-block bg-purple-600 text-white rounded-lg px-4 py-2 text-sm font-medium"
-          >
-            Dashboard
-          </a>
-          <a
-            href="/admin/produtos"
-            className="inline-block bg-black text-white rounded-lg px-4 py-2 text-sm font-medium"
-          >
-            Gerenciar produtos
-          </a>
-          <a
-            href="/admin/configuracoes"
-            className="inline-block border rounded-lg px-4 py-2 text-sm font-medium"
-          >
-            Configurações da loja
-          </a>
-          <a
-            href="/admin/entrega"
-            className="inline-block border rounded-lg px-4 py-2 text-sm font-medium"
-          >
-            Regiões de entrega
-          </a>
-          <a
-            href="/admin/assinatura"
-            className="inline-block bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium"
-          >
-            Minha assinatura
-          </a>
+        <div className="bg-black text-white rounded-2xl p-6 mb-6">
+          <p className="text-sm text-white/60 mb-1">Seu cardápio online</p>
+          <p className="text-white/90 text-sm mb-4">
+            Envie este link para seus clientes fazerem pedidos direto pelo WhatsApp.
+          </p>
+          <LinkCardapio url={cardapioUrl} />
+        </div>
+
+        <div className="grid sm:grid-cols-2 gap-3">
+          {ACOES.map((acao) => (
+            <a
+              key={acao.href}
+              href={acao.href}
+              className="bg-white rounded-xl p-4 border border-gray-100 hover:border-gray-300 transition-colors"
+            >
+              <p className="font-medium text-gray-900">{acao.titulo}</p>
+              <p className="text-sm text-gray-500 mt-0.5">{acao.descricao}</p>
+            </a>
+          ))}
         </div>
       </div>
     </main>
