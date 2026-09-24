@@ -38,6 +38,18 @@ export async function salvarPedido(dados: {
     return { erro: 'Carrinho vazio.' }
   }
 
+  // Checagem real, não só visual: desabilitar o botão no navegador não
+  // impede alguém de chamar essa action diretamente. Sem isso, "loja
+  // fechada" seria só decoração na tela.
+  const { data: loja } = await supabase
+    .from('lojas_publicas')
+    .select('aberta')
+    .eq('id', dados.lojaId)
+    .single()
+  if (!loja?.aberta) {
+    return { erro: 'A loja está fechada no momento e não está aceitando pedidos.' }
+  }
+
   // Nunca confiar em preço, nome ou total vindos do navegador: busca os
   // produtos reais no banco pelo id e recalcula tudo a partir daí. Isso
   // fecha a brecha de alguém editar o preço no DevTools antes de enviar.

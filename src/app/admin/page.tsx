@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import LinkCardapio from './link-cardapio'
+import ToggleLojaAberta from './toggle-loja-aberta'
 
 const STATUS_LABEL: Record<string, string> = {
   ativa: 'Assinatura ativa',
@@ -60,12 +61,12 @@ export default async function AdminPage() {
 
   const { data: lojista } = await supabase
     .from('lojistas')
-    .select('nome, loja_id, lojas(nome, slug, status_assinatura, trial_expira_em)')
+    .select('nome, loja_id, lojas(nome, slug, status_assinatura, trial_expira_em, aberta)')
     .eq('id', user.id)
     .single()
 
   const loja = lojista?.lojas as unknown as
-    | { nome: string; slug: string; status_assinatura: string; trial_expira_em: string | null }
+    | { nome: string; slug: string; status_assinatura: string; trial_expira_em: string | null; aberta: boolean }
     | null
 
   if (!loja) redirect('/entrar')
@@ -92,6 +93,10 @@ export default async function AdminPage() {
           <span className={`text-xs font-medium px-3 py-1.5 rounded-full ${STATUS_COR[loja.status_assinatura] ?? 'bg-gray-100 text-gray-600'}`}>
             {STATUS_LABEL[loja.status_assinatura] ?? loja.status_assinatura}
           </span>
+        </div>
+
+        <div className="mb-6">
+          <ToggleLojaAberta abertaInicial={loja.aberta} />
         </div>
 
         {!assinaturaEmDia && (

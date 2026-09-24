@@ -32,12 +32,14 @@ export default function BarraCarrinho({
   lojaId,
   corPrimaria,
   regioes,
+  lojaAberta,
 }: {
   whatsappLoja: string
   nomeLoja: string
   lojaId: string
   corPrimaria: string
   regioes: Regiao[]
+  lojaAberta: boolean
 }) {
   const { itens, alterarQuantidade, total, quantidadeTotal, limpar } = useCarrinho()
   const [aberto, setAberto] = useState(false)
@@ -89,6 +91,10 @@ export default function BarraCarrinho({
 
   async function enviarPedido() {
     setErro('')
+    if (!lojaAberta) {
+      setErro('A loja está fechada no momento e não está aceitando pedidos.')
+      return
+    }
     if (!nome.trim() || !telefone.trim()) {
       setErro('Preencha nome e telefone.')
       return
@@ -295,6 +301,12 @@ export default function BarraCarrinho({
 
               {erro && <p className="text-red-600 text-sm">{erro}</p>}
 
+              {!lojaAberta && (
+                <p className="bg-red-50 text-red-700 text-sm rounded-xl p-3 text-center">
+                  A loja está fechada no momento e não está aceitando pedidos agora.
+                </p>
+              )}
+
               <p className="text-[11px] text-gray-400 text-center -mb-1">
                 Seus dados são usados apenas para processar este pedido.{' '}
                 <a href="/privacidade" target="_blank" className="underline">Saiba mais</a>
@@ -302,7 +314,7 @@ export default function BarraCarrinho({
 
               <button
                 onClick={enviarPedido}
-                disabled={itens.length === 0 || enviando}
+                disabled={itens.length === 0 || enviando || !lojaAberta}
                 className="bg-green-600 text-white rounded-xl py-3.5 font-semibold disabled:opacity-50 active:scale-[0.98] transition-transform"
               >
                 {enviando ? 'Enviando...' : 'Enviar pedido pelo WhatsApp'}

@@ -16,7 +16,7 @@ export default async function CardapioPublico({
 
   const { data: loja } = await supabase
     .from('lojas_publicas')
-    .select('id, nome, whatsapp, endereco, horario_funcionamento, cor_primaria, logo_url, pixel_meta_id')
+    .select('id, nome, whatsapp, endereco, horario_funcionamento, cor_primaria, logo_url, pixel_meta_id, aberta')
     .eq('slug', slug)
     .single()
 
@@ -95,6 +95,11 @@ export default async function CardapioPublico({
             </div>
 
             <div className="flex flex-wrap gap-2 mt-4">
+              {!loja.aberta && (
+                <span className="text-xs font-semibold bg-red-500/90 backdrop-blur-sm rounded-full px-3 py-1.5 flex items-center gap-1.5">
+                  ● Fechada no momento
+                </span>
+              )}
               {loja.endereco && (
                 <span className="text-xs font-medium bg-white/15 backdrop-blur-sm rounded-full px-3 py-1.5 flex items-center gap-1.5">
                   📍 {loja.endereco}
@@ -161,6 +166,7 @@ export default async function CardapioPublico({
           lojaId={loja.id}
           corPrimaria={cor}
           regioes={regioes ?? []}
+          lojaAberta={loja.aberta}
         />
       </main>
     </CarrinhoProvider>
