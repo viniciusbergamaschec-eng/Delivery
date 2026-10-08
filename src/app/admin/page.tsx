@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import LinkCardapio from './link-cardapio'
 import ToggleLojaAberta from './toggle-loja-aberta'
+import { statusDaLoja } from '@/lib/horario'
 
 const STATUS_LABEL: Record<string, string> = {
   ativa: 'Assinatura ativa',
@@ -33,6 +34,11 @@ const ACOES = [
     href: '/admin/produtos',
     titulo: 'Produtos e cardápio',
     descricao: 'Adicione, edite ou remova itens do cardápio',
+  },
+  {
+    href: '/admin/funcionamento',
+    titulo: 'Horário e modalidades',
+    descricao: 'Horário de pedidos, entrega e retirada',
   },
   {
     href: '/admin/entrega',
@@ -66,12 +72,12 @@ export default async function AdminPage() {
 
   const { data: lojista } = await supabase
     .from('lojistas')
-    .select('nome, loja_id, lojas(nome, slug, status_assinatura, trial_expira_em, aberta)')
+    .select('nome, loja_id, lojas(nome, slug, status_assinatura, trial_expira_em, aberta, modo_funcionamento, horarios, fuso_horario)')
     .eq('id', user.id)
     .single()
 
   const loja = lojista?.lojas as unknown as
-    | { nome: string; slug: string; status_assinatura: string; trial_expira_em: string | null; aberta: boolean }
+    | { nome: string; slug: string; status_assinatura: string; trial_expira_em: string | null; aberta: boolean; modo_funcionamento: string; horarios: unknown; fuso_horario: string }
     | null
 
   if (!loja) redirect('/entrar')
@@ -81,6 +87,8 @@ export default async function AdminPage() {
     loja.trial_expira_em &&
     new Date(loja.trial_expira_em) > new Date()
   const assinaturaEmDia = loja.status_assinatura === 'ativa' || trialValido
+
+  const statusLoja = statusDaLoja(loja)
 
   const h = await headers()
   const host = h.get('host')
@@ -102,6 +110,12 @@ export default async function AdminPage() {
 
         <div className="mb-6">
           <ToggleLojaAberta abertaInicial={loja.aberta} />
+          {loja.aberta && !statusLoja.aberta && (
+            <p className="text-sm text-amber-700 mt-2">
+              Fora do horário programado: clientes não conseguem pedir agora
+              {statusLoja.proximaAbertura ? ` (abre ${statusLoja.proximaAbertura})` : ''}.
+            </p>
+          )}
         </div>
 
         {!assinaturaEmDia && (

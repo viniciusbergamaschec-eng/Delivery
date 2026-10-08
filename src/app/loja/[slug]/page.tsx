@@ -5,6 +5,7 @@ import { CarrinhoProvider } from './carrinho-context'
 import CardProduto from './card-produto'
 import CategoriaNav from './categoria-nav'
 import BarraCarrinho from './barra-carrinho'
+import { statusDaLoja } from '@/lib/horario'
 
 export default async function CardapioPublico({
   params,
@@ -16,13 +17,14 @@ export default async function CardapioPublico({
 
   const { data: loja } = await supabase
     .from('lojas_publicas')
-    .select('id, nome, whatsapp, endereco, horario_funcionamento, cor_primaria, logo_url, pixel_meta_id, aberta, pix_habilitado')
+    .select('id, nome, whatsapp, endereco, horario_funcionamento, cor_primaria, logo_url, pixel_meta_id, aberta, pix_habilitado, modo_funcionamento, horarios, fuso_horario, aceita_entrega, aceita_retirada')
     .eq('slug', slug)
     .single()
 
   if (!loja) notFound()
 
   const cor = loja.cor_primaria || '#15803d'
+  const status = statusDaLoja(loja)
 
   const [{ data: categorias }, { data: produtos }, { data: regioes }] = await Promise.all([
     supabase.from('categorias').select('*').eq('loja_id', loja.id).order('ordem'),
@@ -95,9 +97,9 @@ export default async function CardapioPublico({
             </div>
 
             <div className="flex flex-wrap gap-2 mt-4">
-              {!loja.aberta && (
+              {!status.aberta && (
                 <span className="text-xs font-semibold bg-red-500/90 backdrop-blur-sm rounded-full px-3 py-1.5 flex items-center gap-1.5">
-                  ● Fechada no momento
+                  ● Fechada no momento{status.proximaAbertura ? ` · abre ${status.proximaAbertura}` : ''}
                 </span>
               )}
               {loja.endereco && (
@@ -108,6 +110,11 @@ export default async function CardapioPublico({
               {loja.horario_funcionamento && (
                 <span className="text-xs font-medium bg-white/15 backdrop-blur-sm rounded-full px-3 py-1.5 flex items-center gap-1.5">
                   🕒 {loja.horario_funcionamento}
+                </span>
+              )}
+              {loja.aceita_entrega !== loja.aceita_retirada && (
+                <span className="text-xs font-medium bg-white/15 backdrop-blur-sm rounded-full px-3 py-1.5">
+                  {loja.aceita_entrega ? '🛵 Somente entrega' : '🏪 Somente retirada no local'}
                 </span>
               )}
             </div>
@@ -166,8 +173,11 @@ export default async function CardapioPublico({
           lojaId={loja.id}
           corPrimaria={cor}
           regioes={regioes ?? []}
-          lojaAberta={loja.aberta}
+          lojaAberta={status.aberta}
+          proximaAbertura={status.proximaAbertura}
           pixDisponivel={loja.pix_habilitado}
+          aceitaEntrega={loja.aceita_entrega}
+          aceitaRetirada={loja.aceita_retirada}
         />
       </main>
     </CarrinhoProvider>

@@ -35,7 +35,10 @@ export default function BarraCarrinho({
   corPrimaria,
   regioes,
   lojaAberta,
+  proximaAbertura,
   pixDisponivel,
+  aceitaEntrega,
+  aceitaRetirada,
 }: {
   whatsappLoja: string
   nomeLoja: string
@@ -43,11 +46,16 @@ export default function BarraCarrinho({
   corPrimaria: string
   regioes: Regiao[]
   lojaAberta: boolean
+  proximaAbertura: string | null
   pixDisponivel: boolean
+  aceitaEntrega: boolean
+  aceitaRetirada: boolean
 }) {
   const { itens, alterarQuantidade, total, quantidadeTotal, limpar } = useCarrinho()
   const [aberto, setAberto] = useState(false)
-  const [tipoEntrega, setTipoEntrega] = useState<'retirada' | 'entrega'>('retirada')
+  const [tipoEntrega, setTipoEntrega] = useState<'retirada' | 'entrega'>(
+    aceitaRetirada ? 'retirada' : 'entrega'
+  )
   const [nome, setNome] = useState('')
   const [telefone, setTelefone] = useState('')
   const [endereco, setEndereco] = useState('')
@@ -99,6 +107,10 @@ export default function BarraCarrinho({
     setErro('')
     if (!lojaAberta) {
       setErro('A loja está fechada no momento e não está aceitando pedidos.')
+      return
+    }
+    if ((tipoEntrega === 'entrega' && !aceitaEntrega) || (tipoEntrega === 'retirada' && !aceitaRetirada)) {
+      setErro('Essa modalidade não está disponível nesta loja.')
       return
     }
     if (!nome.trim() || !telefone.trim()) {
@@ -220,26 +232,32 @@ export default function BarraCarrinho({
             </div>
 
             <div className="flex flex-col gap-4 border-t pt-4">
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setTipoEntrega('retirada')}
-                  className={`flex-1 border rounded-xl py-2.5 text-sm font-medium transition-colors ${
-                    tipoEntrega === 'retirada' ? 'text-white border-transparent' : 'text-gray-600'
-                  }`}
-                  style={tipoEntrega === 'retirada' ? { backgroundColor: corPrimaria } : {}}
-                >
-                  Retirada no local
-                </button>
-                <button
-                  onClick={() => setTipoEntrega('entrega')}
-                  className={`flex-1 border rounded-xl py-2.5 text-sm font-medium transition-colors ${
-                    tipoEntrega === 'entrega' ? 'text-white border-transparent' : 'text-gray-600'
-                  }`}
-                  style={tipoEntrega === 'entrega' ? { backgroundColor: corPrimaria } : {}}
-                >
-                  Entrega
-                </button>
-              </div>
+              {aceitaEntrega && aceitaRetirada ? (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setTipoEntrega('retirada')}
+                    className={`flex-1 border rounded-xl py-2.5 text-sm font-medium transition-colors ${
+                      tipoEntrega === 'retirada' ? 'text-white border-transparent' : 'text-gray-600'
+                    }`}
+                    style={tipoEntrega === 'retirada' ? { backgroundColor: corPrimaria } : {}}
+                  >
+                    Retirada no local
+                  </button>
+                  <button
+                    onClick={() => setTipoEntrega('entrega')}
+                    className={`flex-1 border rounded-xl py-2.5 text-sm font-medium transition-colors ${
+                      tipoEntrega === 'entrega' ? 'text-white border-transparent' : 'text-gray-600'
+                    }`}
+                    style={tipoEntrega === 'entrega' ? { backgroundColor: corPrimaria } : {}}
+                  >
+                    Entrega
+                  </button>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-600 bg-gray-50 rounded-xl px-4 py-2.5 text-center">
+                  {aceitaEntrega ? 'Esta loja atende somente entrega.' : 'Esta loja atende somente retirada no local.'}
+                </p>
+              )}
 
               <input
                 value={nome}
@@ -332,6 +350,7 @@ export default function BarraCarrinho({
               {!lojaAberta && (
                 <p className="bg-red-50 text-red-700 text-sm rounded-xl p-3 text-center">
                   A loja está fechada no momento e não está aceitando pedidos agora.
+                  {proximaAbertura ? ` Abre ${proximaAbertura}.` : ''}
                 </p>
               )}
 

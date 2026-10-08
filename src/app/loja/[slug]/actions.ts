@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { checarLimite, obterIp } from '@/lib/rate-limit'
+import { statusDaLoja } from '@/lib/horario'
 import { asaasCriarClienteNaSubconta, asaasCriarCobrancaPixNaSubconta, asaasBuscarQrCodePix } from '@/lib/asaas'
 
 function adminClient() {
@@ -52,11 +53,32 @@ export async function salvarPedido(dados: {
   // fechada" seria só decoração na tela.
   const { data: loja } = await supabase
     .from('lojas_publicas')
-    .select('aberta')
+    .select('aberta, modo_funcionamento, horarios, fuso_horario, aceita_entrega, aceita_retirada')
     .eq('id', dados.lojaId)
     .single()
-  if (!loja?.aberta) {
-    return { erro: 'A loja está fechada no momento e não está aceitando pedidos.' }
+  if (!loja) {
+    return { erro: 'Loja não encontrada.' }
+  }
+
+  // Considera a chave manual E o horário programado, calculado agora, no
+  // servidor — o cliente pode ter deixado a página aberta passando do horário.
+  const status = statusDaLoja(loja)
+  if (!status.aberta) {
+    return {
+      erro:
+        status.motivo === 'fora_do_horario'
+          ? `A loja está fora do horário de funcionamento${
+              status.proximaAbertura ? ` (abre ${status.proximaAbertura})` : ''
+            }.`
+          : 'A loja está fechada no momento e não está aceitando pedidos.',
+    }
+  }
+
+  if (dados.tipoEntrega === 'entrega' && !loja.aceita_entrega) {
+    return { erro: 'Esta loja não está atendendo entrega no momento.' }
+  }
+  if (dados.tipoEntrega === 'retirada' && !loja.aceita_retirada) {
+    return { erro: 'Esta loja não está atendendo retirada no momento.' }
   }
 
   // Nunca confiar em preço, nome ou total vindos do navegador: busca os
