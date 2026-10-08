@@ -45,6 +45,11 @@ const ACOES = [
     descricao: 'Nome, WhatsApp, logo, cor e Pixel do Meta',
   },
   {
+    href: '/admin/pagamento-pix',
+    titulo: 'Receber Pix pelo app',
+    descricao: 'Opcional: deixe o cliente pagar na hora, direto na sua conta',
+  },
+  {
     href: '/admin/assinatura',
     titulo: 'Assinatura',
     descricao: 'Plano, cobrança e status de pagamento',

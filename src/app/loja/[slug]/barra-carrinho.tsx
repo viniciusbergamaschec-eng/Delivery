@@ -19,9 +19,11 @@ function limparTelefone(numero: string) {
 }
 
 type Regiao = { id: string; nome: string; taxa: number }
+type FormaPagamento = 'pix' | 'dinheiro' | 'cartao_entrega' | 'pix_online'
 
-const LABEL_PAGAMENTO: Record<'pix' | 'dinheiro' | 'cartao_entrega', string> = {
-  pix: 'Pix',
+const LABEL_PAGAMENTO: Record<FormaPagamento, string> = {
+  pix_online: 'Pagar agora (Pix)',
+  pix: 'Pix na entrega',
   dinheiro: 'Dinheiro na entrega/retirada',
   cartao_entrega: 'Cartão na entrega/retirada',
 }
@@ -33,6 +35,7 @@ export default function BarraCarrinho({
   corPrimaria,
   regioes,
   lojaAberta,
+  pixDisponivel,
 }: {
   whatsappLoja: string
   nomeLoja: string
@@ -40,6 +43,7 @@ export default function BarraCarrinho({
   corPrimaria: string
   regioes: Regiao[]
   lojaAberta: boolean
+  pixDisponivel: boolean
 }) {
   const { itens, alterarQuantidade, total, quantidadeTotal, limpar } = useCarrinho()
   const [aberto, setAberto] = useState(false)
@@ -48,10 +52,12 @@ export default function BarraCarrinho({
   const [telefone, setTelefone] = useState('')
   const [endereco, setEndereco] = useState('')
   const [regiaoId, setRegiaoId] = useState('')
-  const [formaPagamento, setFormaPagamento] = useState<'pix' | 'dinheiro' | 'cartao_entrega'>('dinheiro')
+  const [formaPagamento, setFormaPagamento] = useState<FormaPagamento>('dinheiro')
   const [erro, setErro] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [linkAcompanhar, setLinkAcompanhar] = useState('')
+  const [pixInfo, setPixInfo] = useState<{ qrCodeImagem: string; copiaECola: string } | null>(null)
+  const [copiado, setCopiado] = useState(false)
 
   if (quantidadeTotal === 0 && !aberto) return null
 
@@ -137,10 +143,24 @@ export default function BarraCarrinho({
     const numeroLoja = limparTelefone(whatsappLoja)
     window.open(`https://wa.me/55${numeroLoja}?text=${mensagem}`, '_blank')
     limpar()
+    if (resultado.pix) {
+      setPixInfo(resultado.pix)
+    }
     if (resultado.pedidoId) {
       setLinkAcompanhar(`/pedido/${resultado.pedidoId}`)
     } else {
       setAberto(false)
+    }
+  }
+
+  async function copiarCodigoPix() {
+    if (!pixInfo) return
+    try {
+      await navigator.clipboard.writeText(pixInfo.copiaECola)
+      setCopiado(true)
+      setTimeout(() => setCopiado(false), 2000)
+    } catch {
+      // ignora — o código ainda fica visível na tela pra copiar manualmente
     }
   }
 
@@ -278,12 +298,15 @@ export default function BarraCarrinho({
 
               <div className="flex flex-col gap-2">
                 <span className="text-sm font-medium text-gray-700">Forma de pagamento</span>
-                <div className="flex gap-2">
-                  {(['pix', 'dinheiro', 'cartao_entrega'] as const).map((forma) => (
+                <div className="flex gap-2 flex-wrap">
+                  {(pixDisponivel
+                    ? (['pix_online', 'dinheiro', 'cartao_entrega', 'pix'] as const)
+                    : (['dinheiro', 'cartao_entrega', 'pix'] as const)
+                  ).map((forma) => (
                     <button
                       key={forma}
                       onClick={() => setFormaPagamento(forma)}
-                      className={`flex-1 border rounded-xl py-2 text-xs font-medium transition-colors ${
+                      className={`flex-1 min-w-[45%] border rounded-xl py-2 text-xs font-medium transition-colors ${
                         formaPagamento === forma ? 'text-white border-transparent' : 'text-gray-600'
                       }`}
                       style={formaPagamento === forma ? { backgroundColor: corPrimaria } : {}}
@@ -295,6 +318,11 @@ export default function BarraCarrinho({
                 {formaPagamento === 'pix' && (
                   <p className="text-xs text-gray-400">
                     A loja vai te passar a chave Pix pelo WhatsApp para o pagamento.
+                  </p>
+                )}
+                {formaPagamento === 'pix_online' && (
+                  <p className="text-xs text-gray-400">
+                    Você recebe o QR Code pra pagar assim que enviar o pedido.
                   </p>
                 )}
               </div>
@@ -326,11 +354,33 @@ export default function BarraCarrinho({
 
       {linkAcompanhar && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl w-full max-w-sm p-6 text-center">
+          <div className="bg-white rounded-3xl w-full max-w-sm p-6 text-center max-h-[92vh] overflow-y-auto">
             <h2 className="font-bold text-xl mb-2">Pedido enviado!</h2>
-            <p className="text-sm text-gray-500 mb-5">
-              Acompanhe o status do seu pedido pelo link abaixo.
-            </p>
+
+            {pixInfo ? (
+              <>
+                <p className="text-sm text-gray-500 mb-4">
+                  Escaneie o QR Code ou copie o código para pagar via Pix.
+                </p>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`data:image/png;base64,${pixInfo.qrCodeImagem}`}
+                  alt="QR Code Pix"
+                  className="w-48 h-48 mx-auto mb-4 border rounded-lg"
+                />
+                <button
+                  onClick={copiarCodigoPix}
+                  className="w-full bg-gray-100 text-gray-700 rounded-xl py-2.5 text-sm font-medium mb-4"
+                >
+                  {copiado ? 'Código copiado!' : 'Copiar código Pix'}
+                </button>
+              </>
+            ) : (
+              <p className="text-sm text-gray-500 mb-5">
+                Acompanhe o status do seu pedido pelo link abaixo.
+              </p>
+            )}
+
             <a
               href={linkAcompanhar}
               style={{ backgroundColor: corPrimaria }}
@@ -341,6 +391,7 @@ export default function BarraCarrinho({
             <button
               onClick={() => {
                 setLinkAcompanhar('')
+                setPixInfo(null)
                 setAberto(false)
               }}
               className="text-sm text-gray-400 mt-1"

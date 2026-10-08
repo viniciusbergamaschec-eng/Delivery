@@ -16,7 +16,7 @@ export default async function CardapioPublico({
 
   const { data: loja } = await supabase
     .from('lojas_publicas')
-    .select('id, nome, whatsapp, endereco, horario_funcionamento, cor_primaria, logo_url, pixel_meta_id, aberta')
+    .select('id, nome, whatsapp, endereco, horario_funcionamento, cor_primaria, logo_url, pixel_meta_id, aberta, pix_habilitado')
     .eq('slug', slug)
     .single()
 
@@ -167,6 +167,7 @@ export default async function CardapioPublico({
           corPrimaria={cor}
           regioes={regioes ?? []}
           lojaAberta={loja.aberta}
+          pixDisponivel={loja.pix_habilitado}
         />
       </main>
     </CarrinhoProvider>

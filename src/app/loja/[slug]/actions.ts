@@ -1,7 +1,16 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { checarLimite, obterIp } from '@/lib/rate-limit'
+import { asaasCriarClienteNaSubconta, asaasCriarCobrancaPixNaSubconta, asaasBuscarQrCodePix } from '@/lib/asaas'
+
+function adminClient() {
+  return createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}
 
 type ItemPedido = {
   produtoId: string
@@ -15,7 +24,7 @@ export async function salvarPedido(dados: {
   tipoEntrega: 'retirada' | 'entrega'
   endereco?: string
   regiaoId?: string
-  formaPagamento: 'pix' | 'dinheiro' | 'cartao_entrega'
+  formaPagamento: 'pix' | 'dinheiro' | 'cartao_entrega' | 'pix_online'
   itens: ItemPedido[]
 }) {
   const ip = await obterIp()
@@ -138,5 +147,53 @@ export async function salvarPedido(dados: {
     return { erro: itensError.message }
   }
 
-  return { sucesso: true, pedidoId: pedido.id, total }
+  if (dados.formaPagamento !== 'pix_online') {
+    return { sucesso: true, pedidoId: pedido.id, total }
+  }
+
+  // Pix pelo app: a cobrança é criada na SUBCONTA do próprio lojista — o
+  // dinheiro nunca passa pela nossa conta. A api key da subconta é um dado
+  // sensível, por isso busca com service role, nunca pela view pública.
+  const admin = adminClient()
+  const { data: lojaCompleta } = await admin
+    .from('lojas')
+    .select('asaas_subconta_api_key, pix_habilitado, asaas_subconta_status')
+    .eq('id', dados.lojaId)
+    .single()
+
+  if (
+    !lojaCompleta?.pix_habilitado ||
+    lojaCompleta.asaas_subconta_status !== 'ativa' ||
+    !lojaCompleta.asaas_subconta_api_key
+  ) {
+    // Pedido já foi criado normalmente — só não tem cobrança Pix online.
+    // O cliente ainda consegue combinar pagamento pelo WhatsApp como sempre.
+    return { sucesso: true, pedidoId: pedido.id, total, pixIndisponivel: true }
+  }
+
+  try {
+    const cliente = await asaasCriarClienteNaSubconta(lojaCompleta.asaas_subconta_api_key, {
+      name: clienteNome,
+      mobilePhone: clienteTelefone,
+    })
+    const cobranca = await asaasCriarCobrancaPixNaSubconta(lojaCompleta.asaas_subconta_api_key, {
+      customer: cliente.id,
+      value: total,
+      description: `Pedido via cardápio digital`,
+    })
+    const qrCode = await asaasBuscarQrCodePix(lojaCompleta.asaas_subconta_api_key, cobranca.id)
+
+    await admin.from('pedidos').update({ asaas_payment_id: cobranca.id }).eq('id', pedido.id)
+
+    return {
+      sucesso: true,
+      pedidoId: pedido.id,
+      total,
+      pix: { qrCodeImagem: qrCode.encodedImage, copiaECola: qrCode.payload },
+    }
+  } catch {
+    // Falhou gerar a cobrança Pix — o pedido já existe mesmo assim, não
+    // trava o cliente. Ele só não vê o QR Code e segue pelo WhatsApp normal.
+    return { sucesso: true, pedidoId: pedido.id, total, pixIndisponivel: true }
+  }
 }

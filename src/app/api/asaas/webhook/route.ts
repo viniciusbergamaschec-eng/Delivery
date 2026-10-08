@@ -27,32 +27,39 @@ export async function POST(req: Request) {
 
   const evento = body.event as string
   const subscriptionId = body.payment?.subscription as string | undefined
-
-  if (!subscriptionId) {
-    return NextResponse.json({ ok: true })
-  }
+  const paymentId = body.payment?.id as string | undefined
 
   const supabase = adminClient()
 
-  let novoStatus: string | null = null
-  if (evento === 'PAYMENT_CONFIRMED' || evento === 'PAYMENT_RECEIVED') {
-    novoStatus = 'ativa'
-  } else if (evento === 'PAYMENT_OVERDUE') {
-    novoStatus = 'inadimplente'
-  } else if (
-    evento === 'PAYMENT_DELETED' ||
-    evento === 'PAYMENT_REFUNDED' ||
-    evento === 'SUBSCRIPTION_DELETED' ||
-    evento === 'SUBSCRIPTION_INACTIVATED'
-  ) {
-    novoStatus = 'cancelada'
+  // Caso 1: cobrança da ASSINATURA do lojista (SaaS) — identifica pela subscription.
+  if (subscriptionId) {
+    let novoStatus: string | null = null
+    if (evento === 'PAYMENT_CONFIRMED' || evento === 'PAYMENT_RECEIVED') {
+      novoStatus = 'ativa'
+    } else if (evento === 'PAYMENT_OVERDUE') {
+      novoStatus = 'inadimplente'
+    } else if (
+      evento === 'PAYMENT_DELETED' ||
+      evento === 'PAYMENT_REFUNDED' ||
+      evento === 'SUBSCRIPTION_DELETED' ||
+      evento === 'SUBSCRIPTION_INACTIVATED'
+    ) {
+      novoStatus = 'cancelada'
+    }
+
+    if (novoStatus) {
+      await supabase
+        .from('lojas')
+        .update({ status_assinatura: novoStatus })
+        .eq('asaas_subscription_id', subscriptionId)
+    }
+    return NextResponse.json({ ok: true })
   }
 
-  if (novoStatus) {
-    await supabase
-      .from('lojas')
-      .update({ status_assinatura: novoStatus })
-      .eq('asaas_subscription_id', subscriptionId)
+  // Caso 2: cobrança PIX de um PEDIDO do cliente final, criada na subconta
+  // do lojista — identifica pelo id do pagamento, salvo em pedidos.asaas_payment_id.
+  if (paymentId && (evento === 'PAYMENT_CONFIRMED' || evento === 'PAYMENT_RECEIVED')) {
+    await supabase.from('pedidos').update({ pago: true }).eq('asaas_payment_id', paymentId)
   }
 
   return NextResponse.json({ ok: true })
